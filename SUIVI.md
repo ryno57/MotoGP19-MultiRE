@@ -36,18 +36,22 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : reconnaissance terminée + socle launcher + réseau + launcher (morceaux 2, 3 et 4).**
+**Phase : premier test réel effectué (morceau 5). Serveur local non obtenu.**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
-Le lancement en `-server` ne produit pas encore de socket d'écoute sur 7777.
+Le lancement en `-server` ne produit pas de socket d'écoute sur 7777.
 Le build shipping n'écrit pas de log fichier exploitable.
 La console en jeu n'a pas encore été testée manuellement.
 
 Le socle `mgp19/` est en place : détection Steam, profils de config,
 sauvegarde/restauration, diagnostic réseau, pare-feu, lancement host/join
 via Steam et enregistrement de sessions.
-Aucun profil n'a encore été appliqué pour de vrai et aucun lancement réel
-n'a été effectué par le launcher.
+
+Le launcher a été testé en conditions réelles : profil appliqué, jeu lancé,
+session enregistrée, config restaurée. **Mais le test n'a pas produit de
+serveur local** : la map passée en argument est ignorée, et le profil
+`direct-connect` coupe l'accès MileNet, ce qui déclenche des dialogues
+« services Milestone inaccessibles ».
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -216,15 +220,51 @@ Critère de sortie : un 2e client voit le host et une course peut démarrer.
 - collecte des logs et métadonnées de session
 - récupération d'une session restée active
 
-### Morceau suivant (5)
+### Morceau 5 — test réel effectué (résultat négatif)
 
-Test réel :
-1. Lancer `python -m mgp19 host --yes` sur le PC host.
-2. Vérifier l'ouverture du port 7777 et l'état de la console.
-3. Lancer `python -m mgp19 join <IP> --yes` sur un 2e PC.
-4. Documenter dans `docs/PHASE1-RESULTS.md`.
+Test :
 
-Puis ajuster les arguments de lancement selon ce qui est observé.
+- `python -m mgp19 host --yes`
+- profil `direct-connect`, map Mugello `?listen`, port 7777
+- session `20261110-190919-host`, durée 162,8 s
+
+Observé :
+
+1. Le jeu démarre normalement.
+2. Écran sauvegarde automatique, puis « Appuyer sur une touche ».
+3. Dialogue « Un nouveau correctif est disponible ».
+4. Dialogue « Vous ne pouvez pas accéder aux services de Milestone ».
+5. Après « Annuler » : spinner de chargement, puis sortie du jeu.
+6. **Aucun socket UDP 7777** de toute la session.
+
+Conclusion :
+
+- Les arguments Steam sont bien transmis.
+- La map en argument ne déclenche pas de serveur local.
+- Le profil `direct-connect` empêche l'accès MileNet et bloque le flux online.
+- Le launcher lui-même fonctionne : profil appliqué, jeu lancé, session
+  enregistrée, config restaurée, logs collectés.
+
+Détails : `docs/PHASE1-RESULTS.md`.
+
+### Morceau suivant (6)
+
+Tester le listen server par la console, en profil **vanilla** :
+
+1. Lancer le jeu normalement (vanilla) jusqu'au menu principal.
+2. Ouvrir la console avec `~` ou `F1`.
+3. Taper :
+   ```text
+   open /Game/maps/Tracks/mugello/mugello?listen
+   ```
+4. Vérifier l'apparition du port 7777.
+5. Si la console est inaccessible : l'activer via la config, ou passer au mock
+   MileNet.
+
+Décision :
+- console + listen server OK → adapter le launcher pour exécuter la commande.
+- console impossible → mock MileNet / GameLift.
+- aucun serveur local → plan B.
 
 ---
 
@@ -347,6 +387,35 @@ Vérifications :
 
 Aucun lancement réel, aucune écriture de config, aucune règle pare-feu.
 Prochain morceau : test réel host/join sur deux PC.
+
+### 2026-11-10 — Morceau 5 : premier test réel host
+
+Exécuté :
+
+- `python -m mgp19 host --yes`
+- profil `direct-connect`
+- map `/Game/maps/Tracks/mugello/mugello?listen`
+- port 7777
+
+Résultat :
+
+- le jeu démarre, affiche l'avertissement de sauvegarde puis l'écran
+  « Appuyer sur une touche » ;
+- dialogue « Un nouveau correctif est disponible » ;
+- dialogue « Vous ne pouvez pas accéder aux services de Milestone » ;
+- après « Annuler », spinner puis sortie du jeu ;
+- **aucun port UDP 7777 ouvert** ;
+- le launcher a bien restauré `Engine.ini` et collecté la session.
+
+Interprétation :
+
+- les arguments Steam passent bien ;
+- la map en argument ne lance pas de serveur ;
+- le profil `direct-connect` coupe MileNet et bloque le flux online ;
+- il faut tester le listen server via la console, en vanilla.
+
+Document : `docs/PHASE1-RESULTS.md`.
+Prochain morceau : test console `~` / `F1` + `open ...?listen`.
 
 ---
 
