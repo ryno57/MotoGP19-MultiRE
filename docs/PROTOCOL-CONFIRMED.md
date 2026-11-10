@@ -80,14 +80,21 @@ GET  /services/v1/Storage/<appid>/Catalog/...
 
 ### 2.5 Requêtes de session
 
-`Create` (corps déchiffré, d'après le contact) :
+`Create` (corps déchiffré, confirmé par `requests.jsonl`) :
 
 ```json
 {
-  "Latencies": {"<region>": 30, "...": 300},
+  "Latencies": {
+    "eu-central-1": 99999,
+    "ap-southeast-2": 99999,
+    "ap-northeast-1": 99999,
+    "us-west-1": 99999,
+    "us-east-1": 99999,
+    "ap-southeast-1": 99999
+  },
   "MaxPlayers": 12,
   "Alias": "MGP19-<pseudo>",
-  "Properties": {"PlatformSessionId": "<id lobby Steam>"}
+  "Properties": {"PlatformSessionId": "<steam-lobby-id>"}
 }
 ```
 
@@ -96,6 +103,18 @@ GET  /services/v1/Storage/<appid>/Catalog/...
 ```json
 {"GameSessionId": "arn:aws:gamelift:<region>::gamesession/fleet-<uuid>/gsess-<...>"}
 ```
+
+Login (corps journalisé par l'addon, qui retire `EncryptionKey` et `AuthToken`) :
+
+```json
+{"createNew": false, "buildId": 4909173, "branch": "public"}
+```
+
+Deux tentatives observées dans `requests.jsonl` :
+
+1. `Create` avec des latences à 99999 → session `us-west-1`.
+2. `Create` avec des latences à 99999 → session `eu-central-1`
+   (celle de `race_session.pcap` et `mem_hits.txt`).
 
 Tailles observées dans `flows.mitm` :
 

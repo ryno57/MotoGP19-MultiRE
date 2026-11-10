@@ -531,6 +531,27 @@ Conséquences :
 
 Document : `docs/PROTOCOL-CONFIRMED.md`.
 
+### 2026-11-10 — `requests.jsonl`
+
+Reçu les corps de requêtes déchiffrés (10 lignes).
+
+Confirmé :
+
+- Login : `{"createNew": false, "buildId": 4909173, "branch": "public"}`
+  (`EncryptionKey` et `AuthToken` sont retirés par l'addon).
+- `Create` : `Latencies` (6 régions), `MaxPlayers: 12`,
+  `Alias: "MGP19-<pseudo>"`, `Properties.PlatformSessionId`.
+- `ReserveSpot` : `GameSessionId` ARN.
+- Deux tentatives : `us-west-1` puis `eu-central-1` ; la seconde correspond
+  à `race_session.pcap` / `mem_hits.txt`.
+
+Toujours inconnu :
+
+- le schéma de la réponse `Create` (832 o chiffrés) ;
+- l'algorithme `WWW-Authenticate` (non bloquant pour un mock).
+
+Document : `docs/PROTOCOL-CONFIRMED.md`.
+
 ---
 
 ## 11. Rappels légaux / éthiques
