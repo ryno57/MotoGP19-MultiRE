@@ -327,6 +327,10 @@ MileNet/GameLift.
 - A9 dépôt Steam serveur : `app_info_print 984780` ne liste que le dépôt
   jeu `984781` + shared + DLC. Aucun dépôt serveur. Store : aucun outil
   « Dedicated Server ».
+- A10 injection `?Listen` dans le voyage offline : le hook injecte bien
+  `?Listen` dans l'URL, Mugello se charge et le joueur roule, mais aucun
+  socket UDP et aucun NetDriver sur le monde principal. `ServerTravel` ne
+  traite pas `?Listen` comme la commande `open`.
 
 Conclusion : la création de session locale via **Null OSS** est
 instable / non supportée. Le session manager du client est conçu pour

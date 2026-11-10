@@ -219,8 +219,15 @@ Ces pistes sont documentées comme impasses.
   `984781` (jeu) + shared + DLC ; aucun dépôt serveur.
   Recherche Steam Store : aucun outil « Dedicated Server ».
   **A9 est mort.**
-- Conclusion : même un appel engine direct fige le client. Le blocage n'est
-  pas seulement la commande `open`. La Voie A est **définitivement morte**.
+- **A10 dernier test — injection `?Listen` dans le voyage offline** :
+  hook de `GetOptionsToPassInNewLevel` + `OnServerTravel`, flag F9.
+  L'URL de voyage contient bien `?Listen`, Mugello se charge et le joueur
+  roule sur la piste, mais **aucun socket UDP** n'est ouvert et aucun
+  `NetDriver` n'existe sur le monde principal. `ServerTravel` ne traite pas
+  `?Listen` comme la commande `open`.
+- Conclusion : même un appel engine direct fige le client, et injecter
+  `?Listen` dans le flux offline ne crée pas de serveur. La Voie A est
+  **définitivement morte**.
 
 Il reste :
 

@@ -1037,6 +1037,37 @@ Décision :
 1. **Voie B** : backend officiel + correctif de latences.
 2. **Plan B** : autre jeu avec serveur dédié.
 
+### 2026-11-10 — Dernier test : injection `?Listen` dans le voyage du jeu → échec
+
+Objectif : utiliser le flux offline du jeu (course rapide Mugello) et forcer
+le listen server **sans** appeler `OpenLevel` à la main.
+
+Méthode :
+
+- hook UE4SS sur `AIgnitionGameMode::GetOptionsToPassInNewLevel` ;
+- hook sur `AIgnitionGameMode::OnServerTravel` ;
+- flag F9 `MGP19_FORCE_LISTEN` ;
+- le hook retourne `?Game=...RaceGameMode_BP_C?Listen` ;
+- lancement d'un week-end Mugello via l'UI normale.
+
+Résultat :
+
+- `HOOK GetOptions force=?Game=...RaceGameMode_BP_C?Listen` ;
+- `HOOK OnServerTravel URL=/Game/maps/Tracks/Mugello/Mugello?...?Listen Absolute=true` ;
+- Mugello se charge, le joueur entre dans le box puis roule sur la piste ;
+- **aucun socket UDP** ouvert par le jeu (aucun port UDP du tout) ;
+- aucun `NetDriver` sur le monde principal Mugello ;
+- le seul `NetDriver` vu appartenait au sous-niveau `box`.
+
+Conclusion :
+
+- injecter `?Listen` dans l'URL de `ServerTravel` ne crée pas de listen server ;
+- `ServerTravel` ne traite pas `?Listen` comme le fait la commande `open` ;
+- la seule voie `open`/`OpenLevel` avec `listen` fige le client ;
+- la Voie A est **définitivement morte**.
+
+Décision finale : Voie B ou plan B.
+
 ---
 
 ## 11. Rappels légaux / éthiques
