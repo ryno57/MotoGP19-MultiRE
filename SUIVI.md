@@ -1133,6 +1133,36 @@ Conclusion :
 - prochaine piste : hooker la fonction à `+0x5a1f4b` ou créer l'objet de
   session manquant avant l'appel.
 
+Test complémentaire :
+
+- déclenchement au **planning du week-end Mugello**, compétition active ;
+- même crash : UDP 27015 puis `EXCEPTION_ACCESS_VIOLATION` à `0x358` ;
+- la pile montre `[GameState + 0x3A0]` = `ReplicatedCompetition`, puis un
+  appel virtuel `[vtable + 0x640]` qui retourne `NULL` ;
+- l'objet nul n'est donc pas la compétition, mais un objet de session/réseau
+  retourné par la compétition ;
+- piste suivante : identifier la méthode virtuelle `+0x640` et l'objet
+  attendu, puis le créer ou le substituer avant `OpenLevel`.
+
+Diagnostic vtable (sans crash) :
+
+- `GameState` = `MenuGameState_0` ;
+- `ReplicatedCompetition` = non nul ;
+- `[vtable + 0x640]` = thunk vers `[vtable + 0x638]` = RVA `0x53A1B0` ;
+- la fonction `0x53A1B0` fait une recherche indexée :
+  - `+0x370` = tableau (lu : `0`) ;
+  - `+0x378` = taille (lue : `0`) ;
+  - `+0x380` = index (lu : `-1`) ;
+- elle retourne `0` quand la table est vide, d'où le crash de l'appelant.
+
+Conclusion : la compétition `ReplicatedCompetition` n'est **pas initialisée**
+au moment de `OpenLevel`. Le problème n'est pas le listen server, mais l'état
+de la compétition.
+
+Piste suivante : appeler `StartLevel` / `SetupDefaultCompetition` sur la
+compétition avant `OpenLevel`, ou remplir `Level` / `GameMode` / le tableau
+de compétiteurs.
+
 Fichiers :
 
 - `work/native-mod/` : source et build du mod C++ ;
