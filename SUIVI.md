@@ -55,7 +55,7 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : control plane maîtrisé + UE4SS opérationnel. Serveur de jeu local non obtenu.**
+**Phase : Voie A épuisée (serveur local impossible). Décision : Voie B ou plan B.**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
 Le lancement en `-server` ne produit pas de socket d'écoute sur 7777.
@@ -984,6 +984,58 @@ Prochain test recommandé :
 
 Chaque test doit logguer `World.NetMode`, `World.NetDriver`, le monde chargé
 et l'UDP 7777.
+
+### 2026-11-10 — A1 `OpenLevel` : freeze
+
+Test :
+
+- profil `direct-connect` (Null OSS, IpNetDriver, encryption off) ;
+- UE4SS chargé, jeu au menu principal ;
+- appel `UGameplayStatics::OpenLevel(world, "/Game/maps/lobby/lobby",
+  true, "listen?game=...LobbyGameModeBP...")`.
+
+Résultat :
+
+- log `A1 OpenLevel lobby listen` ;
+- le jeu affiche le dialogue « services Milestone » puis un spinner ;
+- **le processus ne répond plus** (`Responding=False`) ;
+- aucun `A1 immediate` (NetMode/NetDriver) loggé ;
+- **aucun UDP 7777**.
+
+A2 (`ServerTravel` absolute) et A3 (`server/idle?listen`) n'ont pas pu être
+testés : A1 a figé le jeu avant.
+
+Conclusion :
+
+- même l'appel engine `OpenLevel` fige le client ;
+- le blocage n'est pas seulement le `ClientTravel` de la commande `open` ;
+- la Voie A par le client est très probablement morte.
+
+Dernière piste indépendante : **dépôt Steam « Dedicated Server »** (A9).
+Sinon : Voie B ou plan B.
+
+### 2026-11-10 — A9 : dépôt Steam serveur → inexistant
+
+Vérifications :
+
+- `steamcmd +login anonymous +app_info_print 984780` :
+  - dépôt installé : `984781` (contenu du jeu, 18 Go) ;
+  - dépôts partagés : `228986`, `228990` (Steamworks) ;
+  - DLC : `1058300` ;
+  - **aucun dépôt serveur / dedicated** ;
+  - `privatebranches = 1` (branche privée non accessible).
+- Recherche Steam Store « MotoGP19 Dedicated Server » :
+  - seul le jeu apparaît, aucun outil serveur.
+
+Conclusion :
+
+- il n'existe pas de binaire serveur public séparé sur Steam ;
+- la Voie A est **définitivement morte** pour ce client.
+
+Décision :
+
+1. **Voie B** : backend officiel + correctif de latences.
+2. **Plan B** : autre jeu avec serveur dédié.
 
 ---
 

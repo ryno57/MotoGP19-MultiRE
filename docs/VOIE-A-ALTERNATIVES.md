@@ -209,6 +209,26 @@ Ces pistes sont documentées comme impasses.
 
 ---
 
+## 5 bis. Résultats des tests (2026-11-10)
+
+- **A1 `OpenLevel` + `listen`** : log `A1 OpenLevel lobby listen`, puis
+  dialogue « services Milestone », spinner, **freeze du processus**
+  (`Responding=False`). Aucun `NetMode`/`NetDriver`, aucun UDP 7777.
+- **A2 / A3** : non testés, A1 ayant figé le jeu avant.
+- **A9 dépôt Steam serveur** : `app_info_print 984780` ne liste que
+  `984781` (jeu) + shared + DLC ; aucun dépôt serveur.
+  Recherche Steam Store : aucun outil « Dedicated Server ».
+  **A9 est mort.**
+- Conclusion : même un appel engine direct fige le client. Le blocage n'est
+  pas seulement la commande `open`. La Voie A est **définitivement morte**.
+
+Il reste :
+
+1. **Voie B** : backend officiel + correctif de latences.
+2. **Plan B** : autre jeu avec serveur dédié.
+
+---
+
 ## 6. Recommandation
 
 Ordre des prochains tests :

@@ -322,6 +322,11 @@ MileNet/GameLift.
 - 7D UI Null OSS : crash du jeu (`MenuGameState`).
 - A3/UI + `F6` : `SetPlayInLan(true)` OK, puis freeze du processus
   (`Responding=False`), aucun `CreateOnlineSession` loggé, aucun UDP 7777.
+- A1bis `UGameplayStatics::OpenLevel(..., "listen")` : freeze du processus,
+  aucun NetDriver, aucun UDP 7777.
+- A9 dépôt Steam serveur : `app_info_print 984780` ne liste que le dépôt
+  jeu `984781` + shared + DLC. Aucun dépôt serveur. Store : aucun outil
+  « Dedicated Server ».
 
 Conclusion : la création de session locale via **Null OSS** est
 instable / non supportée. Le session manager du client est conçu pour
