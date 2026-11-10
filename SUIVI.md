@@ -1068,6 +1068,79 @@ Conclusion :
 
 Décision finale : Voie B ou plan B.
 
+### 2026-11-10 — `OpenLevel` retesté après fermeture des dialogues → échec
+
+Hypothèse : le freeze d'A1 venait du dialogue « services Milestone » encore
+ouvert au moment du voyage.
+
+Test :
+
+- profil `direct-connect` ;
+- dialogues « correctif » puis « services Milestone » fermés ;
+- menu principal propre, aucun modal ;
+- appel `UGameplayStatics::OpenLevel(world, "/Game/maps/Tracks/mugello/mugello",
+  true, "listen?game=...RaceGameMode_BP_C")`.
+
+Résultat :
+
+- log `OPENLEVEL mugello listen ...` ;
+- **aucun** `OPENLEVEL retourne` ;
+- le processus reste `Responding=True`, mais la call Lua est bloquée ;
+- aucun voyage, aucun écran de chargement ;
+- aucun socket UDP, aucun UDP 7777.
+
+Conclusion :
+
+- le dialogue n'était pas la cause ;
+- `OpenLevel` bloque intrinsèquement sur ce client ;
+- la Voie A est définitivement morte côté client ;
+- seul un patch natif C++/binaire pourrait contourner le blocage, avec un
+  risque élevé que le mode offline ne réplique pas les joueurs distants.
+
+### 2026-11-10 — Mod C++ natif : `OpenLevel(listen)` → UDP 27015 puis crash
+
+Objectif : contourner le blocage Lua en appelant `UGameplayStatics::OpenLevel`
+nativement depuis un mod C++ UE4SS.
+
+Réalisé :
+
+- génération d'une lib d'importation `UE4SS.lib` depuis les exports de
+  `UE4SS.dll` (3067 symboles) ;
+- mod C++ `MGP19NativeMod` compilé avec VS18 BuildTools / CMake ;
+- chargement OK dans UE4SS : `on_unreal_init` ;
+- `StaticFindObject_InternalSlow` retrouve `GameplayStatics`, `World` et la
+  `UFunction OpenLevel` ;
+- lecture des offsets réels des paramètres : 0/8/16/24, taille 40 ;
+- `ProcessEvent(OpenLevel)` retourne sans bloquer ;
+- le hook Lua voit bien `Options=listen?game=...RaceGameMode_BP_C` ;
+- **UDP 27015 s'ouvre** (premier socket serveur obtenu) ;
+- puis **crash** `EXCEPTION_ACCESS_VIOLATION` en lecture à `0x358`.
+
+Analyse du crash :
+
+- `RIP = base + 0x5a1f4b` ;
+- instruction : `mov r14, [rsi+0x358]` ;
+- `RSI = 0` → appel d'une fonction membre avec objet nul ;
+- pile : `+0x5a1f4b`, `+0x5a8b91`, `+0x5a3739`, `+0x1d09030`, ... ;
+- même crash avec `direct-connect` et avec `mock-milenet` ;
+- le crash est donc dans l'initialisation listen, pas dans l'OSS.
+
+Conclusion :
+
+- le mod C++ natif est opérationnel ;
+- `OpenLevel(listen)` crée bien un NetDriver et ouvre un port ;
+- il reste à identifier/pallier l'objet nul (`RSI`) dans le code réseau du jeu ;
+- prochaine piste : hooker la fonction à `+0x5a1f4b` ou créer l'objet de
+  session manquant avant l'appel.
+
+Fichiers :
+
+- `work/native-mod/` : source et build du mod C++ ;
+- `work/native-mod/build/Release/main.dll` ;
+- `work/ue4ss-import/UE4SS.lib` : lib d'importation générée ;
+- `docs/NATIVE-MOD.md` : procédure et analyse ;
+- `tools/dump_threads.py`, `tools/dump_stack_scan.py` : analyse des dumps.
+
 ---
 
 ## 11. Rappels légaux / éthiques
