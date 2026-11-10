@@ -834,6 +834,63 @@ M8 12 joueurs
 
 Prochain morceau : **7A — `CreateAdvancedSession(bUseLAN=true)`**.
 
+### 2026-11-10 — 7A : CreateAdvancedSession(bUseLAN=true)
+
+Test :
+
+- `UCreateSessionCallbackProxyAdvanced` trouvé via
+  `/Script/IgnitionNetwork.Default__CreateSessionCallbackProxyAdvanced`.
+- Appel `CreateAdvancedSession(world, {}, pc, 12, 0, true, true, false,
+  true, true, false, false, false, true)`.
+- Un proxy est bien créé (`UObject: ...`).
+- `OnSuccess` / `OnFailure` ne peuvent pas être bindés après l'activation
+  (factory déjà activée).
+- Résultat :
+  - aucune session visible ;
+  - **aucun UDP 7777** ;
+  - monde = menu.
+
+Test complémentaire avec le profil `direct-connect` (Null OSS) :
+
+- même résultat pour F5 ;
+- `F9` (`open ...?listen`) affiche le spinner de chargement ;
+- le monde reste `/Game/maps/menu/menu` ;
+- aucun UDP 7777.
+
+Conclusion :
+
+- le proxy est créé mais la session n'est pas créée/voyagée ;
+- il manque probablement les propriétés de session ou le FSM
+  `UMpCreateSessionFsmState` ;
+- la navigation UI avec Null OSS n'a pas pu être validée dans ce test
+  (problème de focus/clavier).
+
+Prochain morceau : **A2** (`SetCreateSessionProperties` +
+`CreateOnlineSession`) ou **A3** (`UMpCreateSessionFsmState`).
+
+### 2026-11-10 — 7B / A2 : SetCreateSessionProperties + CreateOnlineSession
+
+Test :
+
+- appel de `GetDefaultCreateSettings()` sur
+  `GameOnlineSessionManagerBP_C` ;
+- résultat : `pcall` échoue (`ok=false`), la suite du script ne s'exécute
+  pas (pas de #2/#3 dans le log) ;
+- aucun `SetCreateSessionProperties` ni `CreateOnlineSession` exécuté ;
+- **aucun UDP 7777**, jeu toujours au menu ;
+- le processus reste vivant et répond.
+
+Conclusion :
+
+- l'appel direct de `GetDefaultCreateSettings` avec des paramètres out est
+  trop fragile en Lua ;
+- la construction manuelle de `TArray<FSessionPropertyKeyPair>` est
+  difficile (struct opaque) ;
+- piste suivante : **A3** (`UMpCreateSessionFsmState`) ou **l'UI avec
+  Null OSS** (le FSM de l'UI fait le travail correctement).
+
+Timebox Phase A : **2 soirées / 4** utilisées.
+
 ---
 
 ## 11. Rappels légaux / éthiques

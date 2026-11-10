@@ -83,11 +83,19 @@ L'installation UE4SS et le CXX Header Dump sont déjà faits.
 
 **Succès :** session créée, monde qui voyage, UDP 7777 ouvert.
 
+**Résultat 2026-11-10 :** proxy créé, mais aucune session ni UDP 7777.
+→ passer à A2.
+
 #### A2. `SetCreateSessionProperties` + `CreateOnlineSession`
 
 - construire un `TArray<FSessionPropertyKeyPair>` minimal ;
 - `SetCreateSessionProperties(properties, 12, false)` ;
 - `CreateOnlineSession()`.
+
+**Résultat 2026-11-10 :** `GetDefaultCreateSettings()` échoue en Lua,
+le script s'arrête avant `SetCreateSessionProperties`.
+`FSessionPropertyKeyPair` est opaque (pas de champ valeur visible).
+→ passer à A3 ou à l'UI avec Null OSS.
 
 #### A3. `UMpCreateSessionFsmState`
 
@@ -280,13 +288,32 @@ Ces pistes sont documentées comme impasses.
 
 ## 12. Prochain morceau
 
-**7A — `CreateAdvancedSession(bUseLAN=true)`**
+**7A / A1 — testé le 2026-11-10**
 
-Créer une session LAN via `UCreateSessionCallbackProxyAdvanced`, vérifier :
+- proxy `CreateAdvancedSession(bUseLAN=true)` créé ;
+- aucune session, aucun UDP 7777.
 
-- le voyage vers le lobby ;
-- l'ouverture d'UDP 7777 ;
-- les logs UE4SS.
+**7B / A2 — testé le 2026-11-10**
 
-Si ça marche → Phase B.  
-Si ça échoue → A2 (`SetCreateSessionProperties` + `CreateOnlineSession`).
+- `GetDefaultCreateSettings()` échoue en Lua ;
+- pas de `SetCreateSessionProperties` / `CreateOnlineSession` ;
+- aucun UDP 7777.
+
+→ passer à **7C / A3** ou à **l'UI avec Null OSS**.
+
+**7C — A3 : `UMpCreateSessionFsmState`**
+
+- trouver/instancier le state ;
+- `SetPublic(false)` ;
+- configurer `LevelToOpen` / `GameModeToOpen` ;
+- déclencher la création ;
+- vérifier le voyage et UDP 7777.
+
+**7D — UI avec Null OSS**
+
+- profil `direct-connect` (Null OSS) ;
+- navigation MULTIJOUEUR → COURSE PRIVÉE → CRÉER UN SALON ;
+- vérifier si l'UI crée une session locale et ouvre UDP 7777.
+
+Si les deux échouent → arrêt de la Phase A et réévaluation
+(Voie B / plan B), conformément au timebox de 4 soirées.

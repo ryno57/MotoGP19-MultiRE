@@ -218,11 +218,14 @@ UCreateSessionCallbackProxyAdvanced::CreateAdvancedSession(..., bUseLAN, ...)
 
 - `SetPlayInLan(true)` → OK.
 - `CreateOnlineSession()` → OK (pas d'erreur Lua).
-- `GetDefaultCreateSettings()` → erreur (paramètres out non gérés simplement
-  en Lua).
+- `GetDefaultCreateSettings()` → `pcall` échoue, le script s'arrête avant
+  `SetCreateSessionProperties` (paramètres out / struct opaque).
+- `CreateAdvancedSession(bUseLAN=true)` → proxy créé, mais aucune session
+  ni UDP 7777. `OnSuccess`/`OnFailure` non bindables après l'activation.
 
 Résultat : **aucune session visible**, **aucun port UDP 7777**,
-le jeu reste au menu principal.
+le jeu reste au menu principal. Même résultat avec `direct-connect`
+(Null OSS).
 
 ### Interprétation
 
