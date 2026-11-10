@@ -4,6 +4,11 @@ Source : message d'un développeur travaillant sous Linux/Proton, + `scan_mem.py
 et `mitm_addon.py`. Ces infos sont crédibles mais non reproduites par nous.
 Ce document sépare ce qui est confirmé, cohérent, à vérifier ou hypothétique.
 
+> **Mise à jour** : les artefacts fournis ensuite (`flows.mitm`, `mem_hits.txt`,
+> `race_session.pcap`, `mgp19_local.pcap`, `mgp19_server.pcapng`,
+> `ue4_decrypt.py`) confirment la majeure partie de ce document.
+> Voir `docs/PROTOCOL-CONFIRMED.md` pour le protocole vérifié.
+
 ---
 
 ## 1. Tableau de confiance

@@ -58,6 +58,13 @@ recoupées : elles confirment que **le binaire client n'embarque pas le SDK
 GameLift serveur** et que `-server` n'active pas de serveur dédié.
 Voir `docs/EXTERNAL-INTEL.md`.
 
+**Mise à jour importante** : les artefacts fournis par le contact
+(`flows.mitm`, `mem_hits.txt`, `race_session.pcap`, etc.) ont permis de
+déchiffrer une session réelle (3563/3572 paquets). Le protocole HTTP et UDP
+est maintenant confirmé et documenté dans `docs/PROTOCOL-CONFIRMED.md`.
+Le serveur observé est une instance AWS GameLift officielle, pas un serveur
+local. Le problème du serveur local reste entier.
+
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
 
@@ -171,6 +178,13 @@ Voir `docs/EXTERNAL-INTEL.md`.
 - `tests/test_network.py` — 12 tests unitaires
 - `tests/test_launcher.py` — 8 tests unitaires
 - `docs/README.md` — structure et commandes
+- `docs/PHASE1-RESULTS.md` — compte rendu du premier test réel
+- `docs/EXTERNAL-INTEL.md` — analyse des infos du contact
+- `docs/PROTOCOL-CONFIRMED.md` — protocole HTTP/UDP confirmé par les artefacts
+- `work/race_clear.jsonl` — session UDP déchiffrée (hex, direction, temps)
+- `work/flows.strings.txt` — chaînes extraites de `flows.mitm`
+- `work/inspect_pcaps.py`, `work/inspect_all.py` — inventaire des captures
+- `work/decrypt_race.py` — déchiffrement du pcap avec la clé mémoire
 - `tools/strings_extract.py` — extraction de strings (ASCII + UTF-16)
 - `tools/pak.py` — lecteur / extracteur de `.pak` UE4
 - `work/strings/shipping.txt` — strings du binaire
@@ -314,10 +328,11 @@ Détails et niveau de confiance : `docs/EXTERNAL-INTEL.md`.
 | Listen server possible | UE4SS / console / `ServerTravel` | inconnu, à tester |
 | Connexion client directe | test 2 PC | inconnu, dépend du serveur |
 | Course démarrable sans MileNet | observation FSM / UE4SS | inconnu |
-| Format exact des réponses de session | memory scan / capture | partiel : ReserveSpot connu, Create à capturer |
-| Chiffrement HTTP RSA/AES rejouable | addon mitmproxy | décrit par le contact, à reproduire |
-| Chiffrement UDP AES-256-GCM | pcap + `ue4_decrypt.py` | décrit comme vérifié, outil à récupérer |
+| Format exact des réponses de session | memory scan / capture | **ReserveSpot confirmé**, `Create` inconnu |
+| Chiffrement HTTP RSA/AES | `flows.mitm` + artefacts | **confirmé** (RSA-OAEP-SHA1 + AES-128-CBC) |
+| Chiffrement UDP AES-256-GCM | pcap déchiffré | **confirmé** (3563/3572 paquets) |
 | SteamNetDriver vs IpNetDriver | override config | `IpNetDriver` forçable |
+| Algorithme `WWW-Authenticate` | reverse | inconnu, non bloquant pour un mock |
 
 ---
 
@@ -480,6 +495,41 @@ Conséquences :
   de secours immédiate.
 
 Document : `docs/EXTERNAL-INTEL.md` (tableau de confiance + plan révisé).
+
+### 2026-11-10 — Analyse des artefacts du contact
+
+Reçu : `flows.mitm`, `mem_hits.txt`, `ue4_decrypt.py`,
+`mgp19_local.pcap`, `mgp19_server.pcapng`, `race_session.pcap`.
+
+Résultats :
+
+- `race_session.pcap` déchiffré avec la clé lue dans `mem_hits.txt` :
+  **3563/3572 paquets**, 13,9 Ko C→S et 20,7 Ko S→C.
+- Login client observé en clair :
+  `/Game/maps/startup/startup?EncryptionToken=psess-...?Name=<pseudo>
+  ?NativeId=<steamid>?MLLobbyDLCs=0?PlayerSessionId=psess-...`
+- Welcome serveur : `/Game/maps/lobby/lobby` +
+  `LobbyGameModeBP.LobbyGameModeBP_C`.
+- Classes de lobby confirmées : `LobbyPlayerControllerBP`,
+  `LobbyGameState`, `LobbyPlayerState`, `WeekendCompetitionBP`,
+  `RaceSelectionControllerComponent`, etc.
+- `ReserveSpot` confirmé par `mem_hits.txt` (PlayerSession GameLift +
+  `playerData` avec `EncryptionKey`/`EncryptionNonce`).
+- `flows.mitm` confirme les en-têtes, endpoints et tailles :
+  `Create` réponse 832 o, `ReserveSpot` réponse 1260 o,
+  `Authorization` constant, `WWW-Authenticate` variable.
+- `mgp19_local.pcap` = TCP loopback vers `127.0.0.1:8443` (proxy), pas un
+  serveur local.
+- `mgp19_server.pcapng` = TCP de contrôle (AWS/Steam/DNS), pas de UDP de jeu.
+
+Conséquences :
+
+- le protocole HTTP/UDP est confirmé et documenté ;
+- le serveur observé est une instance GameLift officielle, pas un serveur local ;
+- le problème du serveur local reste entier (UE4SS / listen server) ;
+- le mock backend est faisable, mais il faut un serveur à pointer.
+
+Document : `docs/PROTOCOL-CONFIRMED.md`.
 
 ---
 
