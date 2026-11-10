@@ -1,9 +1,11 @@
 import base64
 import http.client
 import json
+import socket
 import ssl
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -200,6 +202,54 @@ class MockServerTests(unittest.TestCase):
         self.assertEqual(len(base64.b64decode(player_data["EncryptionKey"])), 32)
         self.assertEqual(len(base64.b64decode(player_data["EncryptionNonce"])), 12)
         connection.close()
+
+    def test_udp_handshake(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            state = mock_backend.MockState(
+                private_key=None,
+                public_pem=b"",
+                game_ip="127.0.0.1",
+                log_path=None,
+            )
+            log_path = Path(tmp) / "udp.jsonl"
+            probe = mock_backend.UdpProbe(
+                "127.0.0.1", 0, state, log_path=log_path
+            )
+            port = probe.sock.getsockname()[1]
+            probe.start()
+
+            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            client.settimeout(3)
+            try:
+                client.sendto(
+                    b"\x01" + b"\x00" * 23 + b"\x04",
+                    ("127.0.0.1", port),
+                )
+                challenge, _ = client.recvfrom(2048)
+                self.assertEqual(challenge, mock_backend.HANDSHAKE_CHALLENGE)
+
+                client.sendto(challenge, ("127.0.0.1", port))
+                response, _ = client.recvfrom(2048)
+                self.assertEqual(response, mock_backend.HANDSHAKE_RESPONSE)
+
+                hello = b"x" * 10 + b"psess-test-1234" + b"y" * 36
+                self.assertEqual(len(hello), 61)
+                client.sendto(hello, ("127.0.0.1", port))
+                time.sleep(0.5)
+            finally:
+                client.close()
+                probe.stop()
+                probe.join(timeout=2)
+
+            records = [
+                json.loads(line)
+                for line in log_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            handshakes = [record.get("handshake") for record in records]
+            self.assertIn("challenge_sent", handshakes)
+            self.assertIn("response_sent", handshakes)
+            self.assertIn("hello", handshakes)
 
 
 if __name__ == "__main__":

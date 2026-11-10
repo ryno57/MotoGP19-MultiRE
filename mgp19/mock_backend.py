@@ -52,14 +52,18 @@ if HAVE_CRYPTO:
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8443
-REGIONS = [
-    "eu-central-1",
-    "us-east-1",
-    "us-west-1",
-    "ap-southeast-1",
-    "ap-southeast-2",
-    "ap-northeast-1",
-]
+# Une seule région pour éviter 6 x 10 s de timeout ICMP dans les tests.
+REGIONS = ["eu-central-1"]
+
+# Paire de handshake UE4 observée dans race_session.pcap.
+# Le client envoie 01 00...04, le serveur répond par le challenge,
+# le client renvoie le challenge, le serveur répond par la réponse.
+HANDSHAKE_CHALLENGE = bytes.fromhex(
+    "bdfd35ff3cdbd4e48e749656b47ecf4133eaf6ff5a7e6b5804"
+)
+HANDSHAKE_RESPONSE = bytes.fromhex(
+    "030000fe3edbd4e48e749656b47ecf4133eaf6ff5a7e6b5804"
+)
 
 
 def _require_crypto() -> None:
@@ -561,6 +565,7 @@ class UdpProbe(threading.Thread):
         self.max_packets = max_packets
         self.running = True
         self.count = 0
+        self.pending: dict[tuple[str, int], str] = {}
         self.lock = threading.Lock()
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -581,6 +586,24 @@ class UdpProbe(threading.Thread):
                 self.running = False
 
     def _handle_packet(self, data: bytes, addr) -> None:
+        key = (addr[0], addr[1])
+        handshake = None
+
+        if len(data) == 25 and data[:1] == b"\x01":
+            self.sock.sendto(HANDSHAKE_CHALLENGE, addr)
+            self.pending[key] = "challenge"
+            handshake = "challenge_sent"
+        elif (
+            len(data) == 25
+            and data == HANDSHAKE_CHALLENGE
+            and self.pending.get(key) == "challenge"
+        ):
+            self.sock.sendto(HANDSHAKE_RESPONSE, addr)
+            self.pending[key] = "response"
+            handshake = "response_sent"
+        elif len(data) == 61:
+            handshake = "hello"
+
         strings = extract_strings(data, 4)
         record = {
             "time": round(time.time(), 3),
@@ -588,6 +611,7 @@ class UdpProbe(threading.Thread):
             "len": len(data),
             "hex": data.hex(),
             "strings": strings,
+            "handshake": handshake,
         }
 
         clear = self._try_decrypt(data)
@@ -596,6 +620,9 @@ class UdpProbe(threading.Thread):
             record["decrypted_strings"] = extract_strings(clear, 4)
 
         self._write(record)
+
+        if handshake:
+            self.state.log(f"  HANDSHAKE {handshake} {addr[0]}:{addr[1]}")
 
         markers = ("psess-", "EncryptionToken", "/Game/maps/", "MILENET")
         for text in strings + record.get("decrypted_strings", []):

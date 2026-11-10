@@ -89,6 +89,39 @@ lui donnons. Il ne manque que :
 
 ---
 
+## Mise à jour 6D — réponse au handshake
+
+Le mock répond maintenant au handshake UE4 avec la paire observée dans
+`race_session.pcap` :
+
+- challenge : `bdfd35ff3cdbd4e48e749656b47ecf4133eaf6ff5a7e6b5804`
+- réponse : `030000fe3edbd4e48e749656b47ecf4133eaf6ff5a7e6b5804`
+
+Test réel :
+
+- `Regions` ne renvoie plus qu'une seule région → ~10 s au lieu de 60 s.
+- `Create` (408 o) → `ReserveSpot` → handshake.
+- Log observé :
+
+```text
+HANDSHAKE challenge_sent 192.168.0.11:61779
+HANDSHAKE response_sent  192.168.0.11:61779
+HANDSHAKE hello          192.168.0.11:61779
+UDP 192.168.0.11:61779 psess-d23ba3c6-ad77-41b0-8a15-8704cd3583ee
+```
+
+- Le paquet `hello` de 61 o contient bien `psess-...` (décalage de bits 3).
+- Le client répète le `hello` toutes les secondes (22 fois) car le mock
+  n'envoie pas de `NMT_Welcome` / d'acceptation serveur.
+- Aucun paquet chiffré n'est encore reçu : le client attend la suite du
+  handshake.
+
+Conclusion : le client accepte notre handshake et nous transmet son
+`EncryptionToken` de session. Il manque la partie « serveur de jeu »
+(`NMT_Welcome`, réplication) — c'est le rôle d'UE4SS ou d'un vrai serveur.
+
+---
+
 ## Artefacts
 
 - `work/mock_6c.out` — log du mock pendant le test

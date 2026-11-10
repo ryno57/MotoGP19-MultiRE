@@ -142,6 +142,22 @@ permet de voir le `NMT_Hello` / `?EncryptionToken=psess-...` même décalé.
 Si une clé AES de session est connue, il tente aussi un déchiffrement
 AES-256-GCM et ajoute `decrypted_strings`.
 
+## Handshake UE4
+
+Le mock répond au handshake observé dans `race_session.pcap` :
+
+- challenge : `bdfd35ff3cdbd4e48e749656b47ecf4133eaf6ff5a7e6b5804`
+- réponse : `030000fe3edbd4e48e749656b47ecf4133eaf6ff5a7e6b5804`
+
+Le client renvoie ensuite un paquet de 61 o contenant `psess-...`.
+Le mock le journalise (`HANDSHAKE hello`) et extrait le `psess`.
+
+Il ne va pas plus loin : pas de `NMT_Welcome`, pas de réplication.
+Le client répète donc le `hello` puis timeout.
+
+`Regions` ne renvoie qu'une seule région (`eu-central-1`) pour éviter
+6 × 10 s de timeout ICMP pendant les tests.
+
 ## Test réel avec le client
 
 1. Fermer le jeu.

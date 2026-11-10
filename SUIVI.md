@@ -36,7 +36,7 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : premier test réel effectué (morceau 5). Serveur local non obtenu.**
+**Phase : control plane maîtrisé (morceau 6D). Serveur de jeu local non obtenu.**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
 Le lancement en `-server` ne produit pas de socket d'écoute sur 7777.
@@ -66,10 +66,10 @@ Le serveur observé est une instance AWS GameLift officielle, pas un serveur
 local. Le problème du serveur local reste entier.
 
 Le **faux backend MileNet** a été testé avec le vrai jeu : login, `Regions`,
-`Create` et `ReserveSpot` acceptés ; le client se connecte à notre IP/port et
-envoie le handshake UE4, puis timeout car le mock ne répond pas au handshake.
-Le **control plane est maîtrisé**. Il reste à implémenter la réponse au
-handshake (6D) et à forcer un serveur local (UE4SS).
+`Create` et `ReserveSpot` acceptés ; le mock répond au handshake UE4 et le
+client envoie son paquet `psess-...` / `NMT_Hello`. Le **control plane est
+maîtrisé**. Il reste à envoyer le `NMT_Welcome` / la réplication (ou à utiliser
+UE4SS) pour obtenir un vrai serveur de jeu.
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -176,7 +176,7 @@ handshake (6D) et à forcer un serveur local (UE4SS).
   - `config.py` — lecture-écriture .ini UE4, profils, backups
   - `network.py` — IP locale/publique, endpoints, ports UDP, pare-feu
   - `launcher.py` — lancement Steam, modes host/join, sessions, logs
-  - `mock_backend.py` — faux backend MileNet local (HTTPS + RSA/AES + Create/ReserveSpot + UDP probe)
+  - `mock_backend.py` — faux backend MileNet local (HTTPS + RSA/AES + Create/ReserveSpot + handshake + UDP probe)
   - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`, `host`, `join`, `sessions`, `mock`
   - `__main__.py` — `python -m mgp19 ...`
 - `profiles/vanilla.json` — aucune modification
@@ -185,7 +185,7 @@ handshake (6D) et à forcer un serveur local (UE4SS).
 - `tests/test_config.py` — 9 tests unitaires
 - `tests/test_network.py` — 12 tests unitaires
 - `tests/test_launcher.py` — 8 tests unitaires
-- `tests/test_mock_backend.py` — 3 tests unitaires (crypto + serveur + session)
+- `tests/test_mock_backend.py` — 4 tests unitaires (crypto + serveur + session + handshake)
 - `docs/README.md` — structure et commandes
 - `docs/MOCK-BACKEND.md` — utilisation du faux backend
 - `docs/MOCK-TEST-RESULTS.md` — résultats du test réel 6C
@@ -647,6 +647,41 @@ Conclusion :
 
 Config restaurée après le test. Aucun processus ni port laissé ouvert.
 Document : `docs/MOCK-TEST-RESULTS.md`.
+
+### 2026-11-10 — Morceau 6D : réponse au handshake
+
+Ajouté :
+
+- `HANDSHAKE_CHALLENGE` / `HANDSHAKE_RESPONSE` (paire observée dans
+  `race_session.pcap`).
+- `UdpProbe` répond au paquet `01...04` par le challenge, puis à l'écho par
+  la réponse, et journalise le paquet `hello` de 61 o.
+- `Regions` ne renvoie qu'une région (`eu-central-1`) pour éviter 60 s de
+  timeout ICMP.
+- test unitaire `test_udp_handshake` : challenge → réponse → hello.
+
+Test réel :
+
+- `Create` (408 o) → `ReserveSpot` → handshake.
+- Log :
+
+```text
+HANDSHAKE challenge_sent 192.168.0.11:61779
+HANDSHAKE response_sent  192.168.0.11:61779
+HANDSHAKE hello          192.168.0.11:61779
+UDP 192.168.0.11:61779 psess-d23ba3c6-ad77-41b0-8a15-8704cd3583ee
+```
+
+- 22 paquets `hello` reçus, contenant `psess-...` (décalage de bits 3).
+- Le client répète car le mock n'envoie pas de `NMT_Welcome`.
+
+Conclusion :
+
+- le client accepte notre handshake et nous transmet son `EncryptionToken` ;
+- il manque la partie serveur de jeu (`NMT_Welcome`, réplication) ;
+- prochaine étape : UE4SS ou un vrai serveur.
+
+Config restaurée. Aucun processus ni port laissé ouvert.
 
 ---
 
