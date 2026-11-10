@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+*.mgp19tmp
+work/
+.venv/
+venv/

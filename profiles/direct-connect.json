@@ -1,0 +1,92 @@
+{
+  "name": "direct-connect",
+  "description": "Force le sous-système Null, IpNetDriver et désactive le chiffrement réseau pour tester un serveur local sans MileNet.",
+  "targets": [
+    "Engine.ini"
+  ],
+  "operations": [
+    {
+      "section": "OnlineSubsystem",
+      "key": "DefaultPlatformService",
+      "mode": "set",
+      "value": "NULL"
+    },
+    {
+      "section": "OnlineSubsystem",
+      "key": "NativePlatformService",
+      "mode": "set",
+      "value": "NULL"
+    },
+    {
+      "section": "OnlineSubsystem",
+      "key": "bHasVoiceEnabled",
+      "mode": "set",
+      "value": "false"
+    },
+    {
+      "section": "/Script/Engine.GameEngine",
+      "key": "NetDriverDefinitions",
+      "mode": "clear_array"
+    },
+    {
+      "section": "/Script/Engine.GameEngine",
+      "key": "NetDriverDefinitions",
+      "mode": "append",
+      "value": "(DefName=\"GameNetDriver\",DriverClassName=\"OnlineSubsystemUtils.IpNetDriver\",DriverClassNameFallback=\"OnlineSubsystemUtils.IpNetDriver\")"
+    },
+    {
+      "section": "SystemSettings",
+      "key": "net.AllowEncryption",
+      "mode": "set",
+      "value": "0"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.ListenServerAllowed",
+      "mode": "set",
+      "value": "1"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.HostAloneAllowed",
+      "mode": "set",
+      "value": "1"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.IgnoreRolePlayerRestrictions",
+      "mode": "set",
+      "value": "1"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.ForceAdvertise",
+      "mode": "set",
+      "value": "1"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.ForceJoinability",
+      "mode": "set",
+      "value": "1"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.OverrideMaxPlayers",
+      "mode": "set",
+      "value": "12"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.MatchMakingVersion",
+      "mode": "set",
+      "value": "2"
+    },
+    {
+      "section": "ConsoleVariables",
+      "key": "Online.DebugFeaturesEnabled",
+      "mode": "set",
+      "value": "1"
+    }
+  ]
+}
