@@ -173,23 +173,87 @@ semble demandée, mais la session/GameMode n'est pas initialisé.
 
 ---
 
-## 7. Prochaines pistes
+## 7. Inspection du session manager (2026-11-10)
 
-1. **Inspecter `GameOnlineSessionManagerBP_C`**
-   - lister ses fonctions/propriétés avec F8 ou `Live View` ;
-   - chercher `CreateSession`, `HostAlone`, `Listen`, `StartMatchmaking`.
-2. **Tester les CVars host-alone**
-   - `Online.ListenServerAllowed=1`
-   - `Online.HostAloneAllowed=1`
-   - `Online.IgnoreRolePlayerRestrictions=1`
-   - puis relancer F9.
-3. **Appeler directement une fonction de session**
-   - via `obj:CallFunction("CreateSession", ...)` si les paramètres sont
-     identifiables.
-4. **Live View**
-   - inspecter les propriétés de `GameOnlineSessionManagerBP_C`,
-     `IgnitionGameSession`, `GameInstance_BP_C`.
-5. Si rien ne marche : revenir au contournement officiel GameLift
+Le **CXX Header Dump** (Ctrl+H dans UE4SS) a généré `CXXHeaderDump/`.
+Les headers utiles ont été copiés dans `work/ue4ss/CXXHeaderDump/`.
+
+### Fonctions intéressantes trouvées
+
+`UGameOnlineSessionManager` (`IgnitionOnline.hpp`) :
+
+```text
+SetPlayInLan(bool)
+CreateOnlineSession()
+SetCreateSessionProperties(TArray<FSessionPropertyKeyPair>, int32, bool)
+StartMatchmaking()
+GetDefaultCreateSettings(TArray<...>&, int32&)
+IsHostAloneAllowed()
+CanIgnoreRolePlayerRestrictions()
+SetNetworkRestrictedArea(bool)
+```
+
+`UMpCreateSessionFsmState` (`ignitiongameplay.hpp`) :
+
+```text
+SetPublic(bool)
+SetPassword(FString)
+CreationConfiguration
+LevelToOpen
+GameModeToOpen
+HandleCreateSessionSuccess()
+HandleCreateSessionFailure(FName)
+```
+
+Autres :
+
+```text
+AGameSpecificGameSession::CreateSession()
+UMpGameModeCommonComponent::CheckHostAlone()
+UMpGameModeCommonComponent::IsHostAlone()
+UCreateSessionCallbackProxyAdvanced::CreateAdvancedSession(..., bUseLAN, ...)
+```
+
+### Tentatives effectuées
+
+- `SetPlayInLan(true)` → OK.
+- `CreateOnlineSession()` → OK (pas d'erreur Lua).
+- `GetDefaultCreateSettings()` → erreur (paramètres out non gérés simplement
+  en Lua).
+
+Résultat : **aucune session visible**, **aucun port UDP 7777**,
+le jeu reste au menu principal.
+
+### Interprétation
+
+- `CreateOnlineSession()` ne suffit pas : il faut probablement
+  `SetCreateSessionProperties` avec des propriétés valides, ou passer par
+  le FSM `UMpCreateSessionFsmState`.
+- `SetPlayInLan(true)` ne change pas forcément la stratégie
+  (`PlatformToDedicatedSessionStrategy`), qui peut continuer à passer par
+  MileNet.
+- La piste la plus prometteuse est `CreateAdvancedSession(..., bUseLAN=true)`
+  ou un remplacement de `StrategyInstance` par `USingleSessionStrategy`.
+
+---
+
+## 8. Prochaines pistes
+
+1. **`CreateAdvancedSession` avec `bUseLAN=true`**
+   - via `UCreateSessionCallbackProxyAdvanced` ;
+   - avec `PublicConnections=12`, `PrivateConnections=0`,
+     `bIsDedicatedServer=false`, `bUseLAN=true`.
+2. **`SetCreateSessionProperties` explicite**
+   - construire un `TArray<FSessionPropertyKeyPair>` minimal ;
+   - appeler `CreateOnlineSession()`.
+3. **`UMpCreateSessionFsmState`**
+   - instancier/activer le state, appeler `SetPublic(false)` ;
+   - voir s'il voyage vers `/Game/maps/lobby/lobby`.
+4. **Remplacer `StrategyInstance`**
+   - par `USingleSessionStrategy` si possible.
+5. **Live View**
+   - inspecter `bPlayInLan`, `CurrentState`, `StrategyInstance`.
+6. Si rien ne marche : revenir au contournement officiel GameLift
    (réécriture des latences) ou au plan B.
 
 ---

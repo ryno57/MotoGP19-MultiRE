@@ -77,8 +77,10 @@ fonctionnaient pas à cause du `™` dans le chemin ; une jonction ASCII
 `steam_appid.txt` ont résolu le problème. La console UE4SS et le dump de
 classes fonctionnent. `open` / `ServerTravel` sont exécutés mais ne créent
 pas de serveur local : le monde reste le menu avec un écran de chargement.
-Prochain axe : inspecter `GameOnlineSessionManagerBP_C` et tester les CVars
-host-alone.
+Le session manager a été inspecté via le CXX Header Dump :
+`SetPlayInLan(bool)` et `CreateOnlineSession()` existent et s'exécutent sans
+erreur, mais ne créent pas encore de session locale. Prochaine piste :
+`CreateAdvancedSession(bUseLAN=true)` ou le FSM `UMpCreateSessionFsmState`.
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -744,6 +746,42 @@ Conclusion :
   `IgnitionGameSession`) avant de voyager.
 - Prochain axe : inspecter `GameOnlineSessionManagerBP_C` (fonctions
   `CreateSession`, `HostAlone`, etc.) et tester les CVars host-alone.
+
+Document : `docs/UE4SS-INSTALL.md`.
+
+### 2026-11-10 — Inspection du session manager
+
+Généré un **CXX Header Dump** via UE4SS (Ctrl+H) dans
+`Binaries/Win64/CXXHeaderDump/`. Headers utiles copiés dans
+`work/ue4ss/CXXHeaderDump/`.
+
+Fonctions identifiées :
+
+- `UGameOnlineSessionManager` : `SetPlayInLan(bool)`,
+  `CreateOnlineSession()`, `SetCreateSessionProperties(...)`,
+  `StartMatchmaking()`, `GetDefaultCreateSettings(...)`,
+  `IsHostAloneAllowed()`.
+- `UMpCreateSessionFsmState` : `SetPublic(bool)`, `SetPassword(FString)`,
+  `CreationConfiguration`, `LevelToOpen`, `GameModeToOpen`.
+- `AGameSpecificGameSession::CreateSession()`.
+- `UMpGameModeCommonComponent::CheckHostAlone()` / `IsHostAlone()`.
+- `UCreateSessionCallbackProxyAdvanced::CreateAdvancedSession(..., bUseLAN, ...)`.
+
+Tentatives :
+
+- `SetPlayInLan(true)` → ok.
+- `CreateOnlineSession()` → ok.
+- `GetDefaultCreateSettings()` → erreur (paramètres out).
+- Résultat : aucune session visible, aucun UDP 7777, monde = menu.
+
+Interprétation :
+
+- `CreateOnlineSession()` seul ne suffit pas ;
+- il faut des propriétés de session valides ou passer par le FSM ;
+- `SetPlayInLan` ne change pas forcément la stratégie
+  `PlatformToDedicatedSessionStrategy` ;
+- prochaine piste : `CreateAdvancedSession(bUseLAN=true)` ou remplacer
+  `StrategyInstance` par `USingleSessionStrategy`.
 
 Document : `docs/UE4SS-INSTALL.md`.
 
