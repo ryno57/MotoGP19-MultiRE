@@ -36,7 +36,7 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : reconnaissance terminée + socle launcher créé (morceau 2).**
+**Phase : reconnaissance terminée + socle launcher + diagnostics réseau (morceaux 2 et 3).**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
 Le lancement en `-server` ne produit pas encore de socket d'écoute sur 7777.
@@ -44,7 +44,11 @@ Le build shipping n'écrit pas de log fichier exploitable.
 La console en jeu n'a pas encore été testée manuellement.
 
 Le socle `mgp19/` est en place : détection Steam, profils de config,
-sauvegarde/restauration. Aucun profil n'a encore été appliqué pour de vrai.
+sauvegarde/restauration, diagnostic réseau et pare-feu.
+Aucun profil n'a encore été appliqué pour de vrai.
+
+> Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
+> C'est ce dossier qui fait foi désormais.
 
 ---
 
@@ -135,11 +139,13 @@ sauvegarde/restauration. Aucun profil n'a encore été appliqué pour de vrai.
 - `mgp19/` — socle Python
   - `paths.py` — détection Steam / installation / chemins utilisateur
   - `config.py` — lecture-écriture .ini UE4, profils, backups
-  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`
+  - `network.py` — IP locale/publique, endpoints, ports UDP, pare-feu
+  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`
   - `__main__.py` — `python -m mgp19 ...`
 - `profiles/vanilla.json` — aucune modification
 - `profiles/direct-connect.json` — override Null OSS + IpNetDriver + CVars
-- `tests/test_config.py` — 9 tests unitaires (tous OK)
+- `tests/test_config.py` — 9 tests unitaires
+- `tests/test_network.py` — 12 tests unitaires
 - `docs/README.md` — structure et commandes
 - `tools/strings_extract.py` — extraction de strings (ASCII + UTF-16)
 - `tools/pak.py` — lecteur / extracteur de `.pak` UE4
@@ -187,15 +193,24 @@ Ordre :
 
 Critère de sortie : un 2e client voit le host et une course peut démarrer.
 
-### Morceau suivant (3)
+### Morceau 3 — terminé
 
-Ajouter `network.py` + les commandes de diagnostic réseau :
-- IP locale
-- test d'écoute du port 7777
-- règle de pare-feu Windows
-- préparation du mode `host` / `join`
+`network.py` + commandes de diagnostic réseau :
+- IP locale / publique
+- endpoint `ip:port`
+- test d'écoute UDP du port 7777
+- règle de pare-feu Windows (vérification + ajout explicite)
+- parsing des endpoints pour les futurs `host` / `join`
 
-Puis seulement : `launcher.py`.
+### Morceau suivant (4)
+
+`launcher.py` :
+- lancement du jeu via Steam avec arguments
+- mode `host` / `join`
+- application / restauration automatique du profil
+- collecte des logs de session
+
+Puis seulement : tests réels host/join.
 
 ---
 
@@ -261,6 +276,32 @@ Vérifications :
 
 Aucun profil n'a été appliqué au vrai `Engine.ini`.
 Prochain morceau : `network.py` + diagnostics réseau.
+
+### 2026-11-10 — Morceau 3 : diagnostics réseau
+
+Créé :
+
+- `mgp19/network.py` :
+  - `local_ip()` sans envoi de paquet
+  - `public_ip()` optionnel via service externe
+  - `format_endpoint()` / `parse_endpoint()` (IPv4, IPv6 entre crochets)
+  - `port_free()` / `udp_listeners()` pour le port 7777
+  - `firewall_rule_exists()`, `ensure_firewall_rule()` via `netsh`
+  - `diagnostics()` qui agrège le tout
+- `tests/test_network.py` : 12 tests.
+- `cli.py` : commandes `net` et `firewall`.
+- `docs/README.md` mis à jour.
+
+Vérifications :
+
+- `python -m unittest discover -s tests` → **21 tests OK**.
+- `python -m mgp19 net` → IP locale `192.168.0.11`, endpoint `192.168.0.11:7777`,
+  port libre, règle pare-feu absente.
+- `python -m mgp19 firewall` → aperçu de la commande `netsh`, aucune écriture.
+- `python -m mgp19 firewall --range` → aperçu plage 7777-8077.
+
+Aucune règle de pare-feu n'a été ajoutée (pas d'admin, pas de `--yes`).
+Prochain morceau : `launcher.py` (host / join + application de profil).
 
 ---
 

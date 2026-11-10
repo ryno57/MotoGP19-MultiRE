@@ -7,6 +7,7 @@ import os
 import sys
 from pathlib import Path
 
+from . import network
 from .config import ConfigManager, Profile
 from .paths import find_install, is_game_running
 
@@ -140,6 +141,62 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_net(args) -> int:
+    info = network.diagnostics(port=args.port, include_public=args.public)
+
+    print("Réseau MotoGP 19")
+    print(f"  machine       : {info['hostname']}")
+    print(f"  IP locale     : {info['local_ip']}")
+    if info["public_ip"]:
+        print(f"  IP publique   : {info['public_ip']}")
+    elif args.public:
+        print("  IP publique   : indisponible")
+    print(f"  endpoint      : {info['endpoint']}")
+    print(f"  UDP {info['port']:<9} : {'occupé' if info['udp_bound'] else 'libre'}")
+
+    for listener in info["listeners"]:
+        process = listener["process"] or "?"
+        print(f"    pid {listener['pid']:<6} {process} {listener['address']}:{listener['port']}")
+
+    print(f"  pare-feu      : {'règle présente' if info['firewall_exists'] else 'règle absente'}")
+    print(f"  règle         : {info['firewall_rule']}")
+    if not info["firewall_exists"]:
+        print("  -> python -m mgp19 firewall --yes   (terminal administrateur)")
+    return 0
+
+
+def cmd_firewall(args) -> int:
+    port_end = network.DEFAULT_PORT_END if args.range else None
+    result = network.ensure_firewall_rule(
+        port=args.port,
+        port_end=port_end,
+        dry_run=not args.yes,
+    )
+
+    print(f"règle      : {result.name}")
+    print(f"existe     : {'oui' if result.exists else 'non'}")
+    print(f"admin      : {'oui' if result.is_admin else 'non'}")
+
+    if result.added:
+        print("ajoutée    : oui")
+    elif result.exists:
+        print("ajout      : inutile")
+    elif result.needs_admin:
+        print("ajout      : refusé (terminal administrateur requis)")
+    elif not args.yes:
+        print("ajout      : aperçu")
+
+    if not result.exists and not result.added:
+        print("commande   :")
+        print(f"  {result.command_text}")
+        if not result.is_admin:
+            print("  -> relance dans un terminal administrateur avec --yes")
+
+    if result.output:
+        print(result.output)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mgp19",
@@ -179,6 +236,29 @@ def build_parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status", help="état de la config")
     status.add_argument("--target", default="Engine.ini")
     status.set_defaults(func=cmd_status)
+
+    net = sub.add_parser("net", help="diagnostic réseau")
+    net.add_argument("--port", type=int, default=network.DEFAULT_PORT)
+    net.add_argument(
+        "--public",
+        action="store_true",
+        help="récupérer aussi l'IP publique (service externe)",
+    )
+    net.set_defaults(func=cmd_net)
+
+    firewall = sub.add_parser("firewall", help="vérifier / ajouter la règle pare-feu")
+    firewall.add_argument("--port", type=int, default=network.DEFAULT_PORT)
+    firewall.add_argument(
+        "--range",
+        action="store_true",
+        help="ouvrir la plage 7777-8077 au lieu d'un seul port",
+    )
+    firewall.add_argument(
+        "--yes",
+        action="store_true",
+        help="ajouter réellement la règle (admin requis)",
+    )
+    firewall.set_defaults(func=cmd_firewall)
 
     return parser
 
