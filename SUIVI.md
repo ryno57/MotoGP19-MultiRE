@@ -65,9 +65,10 @@ est maintenant confirmé et documenté dans `docs/PROTOCOL-CONFIRMED.md`.
 Le serveur observé est une instance AWS GameLift officielle, pas un serveur
 local. Le problème du serveur local reste entier.
 
-Le **faux backend MileNet** (control plane) est implémenté : HTTPS local,
-clé publique, login, endpoints de profil. `Create` et `ReserveSpot` sont
-encore des stubs (morceau 6B).
+Le **faux backend MileNet** est implémenté : HTTPS local, clé publique,
+login, endpoints de profil, `Create`/`ReserveSpot` avec notre IP/port et une
+clé AES, et écoute UDP des paquets du client. Il ne reste plus qu'à le tester
+avec le vrai jeu (morceau 6C) et à forcer un serveur local (UE4SS).
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -174,7 +175,7 @@ encore des stubs (morceau 6B).
   - `config.py` — lecture-écriture .ini UE4, profils, backups
   - `network.py` — IP locale/publique, endpoints, ports UDP, pare-feu
   - `launcher.py` — lancement Steam, modes host/join, sessions, logs
-  - `mock_backend.py` — faux backend MileNet local (HTTPS + RSA/AES)
+  - `mock_backend.py` — faux backend MileNet local (HTTPS + RSA/AES + Create/ReserveSpot + UDP probe)
   - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`, `host`, `join`, `sessions`, `mock`
   - `__main__.py` — `python -m mgp19 ...`
 - `profiles/vanilla.json` — aucune modification
@@ -183,7 +184,7 @@ encore des stubs (morceau 6B).
 - `tests/test_config.py` — 9 tests unitaires
 - `tests/test_network.py` — 12 tests unitaires
 - `tests/test_launcher.py` — 8 tests unitaires
-- `tests/test_mock_backend.py` — 2 tests unitaires (crypto + serveur)
+- `tests/test_mock_backend.py` — 3 tests unitaires (crypto + serveur + session)
 - `docs/README.md` — structure et commandes
 - `docs/MOCK-BACKEND.md` — utilisation du faux backend
 - `docs/PHASE1-RESULTS.md` — compte rendu du premier test réel
@@ -587,6 +588,33 @@ Vérifications :
 
 Aucun lancement du jeu, aucune écriture de config réelle.
 Prochain morceau : 6B (Create/ReserveSpot + écoute UDP + test client).
+
+### 2026-11-10 — Morceau 6B : sessions + écoute UDP
+
+Ajouté :
+
+- `Create` : fausse session GameLift avec `gameSessionId`, `fleetId`,
+  `ipAddress` = IP locale, `port` = 7777, `maximumPlayerSessionCount`.
+- `ReserveSpot` : PlayerSession avec `psess-<uuid>`, IP/port locaux,
+  `playerData` contenant une clé AES-256 + nonce 12 o générés par le mock.
+- `UdpProbe` : écoute `0.0.0.0:7777`, journalise les paquets dans
+  `work/mock_udp.jsonl`, extrait les chaînes ASCII (décalages 0–7) et tente
+  un déchiffrement AES-256-GCM si une clé est connue.
+- CLI : `--game-ip`, `--game-port`, `--no-udp`, `--udp-log`.
+- `docs/MOCK-BACKEND.md` mis à jour.
+
+Vérifications :
+
+- `.\.venv\Scripts\python -m unittest discover -s tests` → **32 tests OK**
+- test d'intégration : login → `Create` → `ReserveSpot`
+  - `gameSessionId` présent
+  - `ipAddress=127.0.0.1`, `port=7777`
+  - `playerData` : clé 32 o, nonce 12 o
+- test UDP manuel : paquet `hello psess-test-1234` reçu et journalisé
+  dans `work/mock_udp.jsonl`.
+
+Aucun lancement du jeu, aucune écriture de config réelle.
+Prochain morceau : 6C (test réel avec le client).
 
 ---
 

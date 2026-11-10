@@ -336,12 +336,20 @@ def cmd_mock(args) -> int:
     if log_path is not None and not log_path.is_absolute():
         log_path = PROJECT_ROOT / log_path
 
+    udp_log = Path(args.udp_log) if args.udp_log else None
+    if udp_log is not None and not udp_log.is_absolute():
+        udp_log = PROJECT_ROOT / udp_log
+
     try:
         return mock_backend.run_mock(
             host=args.host,
             port=args.port,
             cert_dir=cert_dir,
             log_path=log_path,
+            game_ip=args.game_ip,
+            game_port=args.game_port,
+            udp=args.udp,
+            udp_log=udp_log,
         )
     except RuntimeError as error:
         print(f"Erreur : {error}", file=sys.stderr)
@@ -479,7 +487,29 @@ def build_parser() -> argparse.ArgumentParser:
         default="work/mock_milenet.log",
         help="fichier de log du mock (vide pour désactiver)",
     )
-    mock.set_defaults(func=cmd_mock)
+    mock.add_argument(
+        "--game-ip",
+        default=None,
+        help="IP renvoyée dans Create/ReserveSpot (défaut : IP locale)",
+    )
+    mock.add_argument(
+        "--game-port",
+        type=int,
+        default=7777,
+        help="port UDP renvoyé dans Create/ReserveSpot",
+    )
+    mock.add_argument(
+        "--no-udp",
+        dest="udp",
+        action="store_false",
+        help="ne pas écouter le port UDP de jeu",
+    )
+    mock.add_argument(
+        "--udp-log",
+        default="work/mock_udp.jsonl",
+        help="fichier JSONL des paquets UDP reçus",
+    )
+    mock.set_defaults(func=cmd_mock, udp=True)
 
     return parser
 

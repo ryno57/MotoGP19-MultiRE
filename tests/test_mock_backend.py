@@ -1,3 +1,4 @@
+import base64
 import http.client
 import json
 import ssl
@@ -57,6 +58,8 @@ class MockServerTests(unittest.TestCase):
             port=0,
             cert_dir=Path(self.tempdir.name) / "certs",
             log_path=None,
+            game_ip="127.0.0.1",
+            game_port=7777,
         )
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -124,6 +127,78 @@ class MockServerTests(unittest.TestCase):
             mock_backend.decrypt_payload(client_private, encrypted), []
         )
 
+        connection.close()
+
+    def test_create_and_reserve(self):
+        connection = self._connection()
+        connection.request("GET", "/services/v1/Security/PublicKey")
+        response = connection.getresponse()
+        server_public = serialization.load_pem_public_key(response.read())
+
+        client_private, client_public_pem = client_keypair()
+        login = {
+            "createNew": False,
+            "buildId": 4909173,
+            "branch": "public",
+            "EncryptionKey": client_public_pem.decode("utf-8"),
+            "AuthToken": "test-ticket",
+        }
+        login_body = mock_backend.encrypt_payload(server_public, login)
+        connection.request(
+            "POST",
+            "/services/v1/PlayerProfile/Steam/Login",
+            body=login_body,
+            headers={"Content-Type": "application/json"},
+        )
+        login_payload = mock_backend.decrypt_payload(
+            client_private, connection.getresponse().read()
+        )
+        token = login_payload["token"]
+
+        create = {
+            "Latencies": {"eu-central-1": 99999},
+            "MaxPlayers": 12,
+            "Alias": "MGP19-Test",
+            "Properties": {"PlatformSessionId": "123456"},
+        }
+        create_body = mock_backend.encrypt_payload(server_public, create)
+        connection.request(
+            "POST",
+            "/services/v1/GameSessions/Create/",
+            body=create_body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": token,
+            },
+        )
+        create_response = mock_backend.decrypt_payload(
+            client_private, connection.getresponse().read()
+        )
+        self.assertIn("gameSessionId", create_response)
+        self.assertEqual(create_response["ipAddress"], "127.0.0.1")
+        self.assertEqual(create_response["port"], 7777)
+
+        reserve = {"GameSessionId": create_response["gameSessionId"]}
+        reserve_body = mock_backend.encrypt_payload(server_public, reserve)
+        connection.request(
+            "POST",
+            "/services/v1/GameSessions/ReserveSpot/",
+            body=reserve_body,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": token,
+            },
+        )
+        reserve_response = mock_backend.decrypt_payload(
+            client_private, connection.getresponse().read()
+        )
+        self.assertTrue(reserve_response["playerSessionId"].startswith("psess-"))
+        self.assertEqual(reserve_response["ipAddress"], "127.0.0.1")
+        self.assertEqual(reserve_response["port"], 7777)
+
+        player_data = json.loads(reserve_response["playerData"])
+        self.assertEqual(len(base64.b64decode(player_data["EncryptionKey"])), 32)
+        self.assertEqual(len(base64.b64decode(player_data["EncryptionNonce"])), 12)
         connection.close()
 
 
