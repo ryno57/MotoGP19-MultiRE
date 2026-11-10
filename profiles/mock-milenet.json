@@ -1,0 +1,51 @@
+{
+  "name": "mock-milenet",
+  "description": "Redirige MileNet vers le faux backend local (localhost:8443). Le jeu reste en mode MileNet + Steam.",
+  "targets": [
+    "Engine.ini"
+  ],
+  "operations": [
+    {
+      "section": "MileNetOnline",
+      "key": "LiveBaseUrl",
+      "mode": "set",
+      "value": "localhost:8443"
+    },
+    {
+      "section": "MileNetOnline",
+      "key": "ProductionBaseUrl",
+      "mode": "set",
+      "value": "localhost:8443"
+    },
+    {
+      "section": "MileNet",
+      "key": "ShippingServer",
+      "mode": "set",
+      "value": "localhost:8443"
+    },
+    {
+      "section": "MileNet",
+      "key": "MileNetServer",
+      "mode": "set",
+      "value": "localhost:8443"
+    },
+    {
+      "section": "OnlineSubsystem",
+      "key": "DefaultPlatformService",
+      "mode": "set",
+      "value": "MILENET"
+    },
+    {
+      "section": "OnlineSubsystem",
+      "key": "NativePlatformService",
+      "mode": "set",
+      "value": "STEAM"
+    },
+    {
+      "section": "OnlineSubsystem",
+      "key": "bHasVoiceEnabled",
+      "mode": "set",
+      "value": "false"
+    }
+  ]
+}

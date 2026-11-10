@@ -65,6 +65,10 @@ est maintenant confirmé et documenté dans `docs/PROTOCOL-CONFIRMED.md`.
 Le serveur observé est une instance AWS GameLift officielle, pas un serveur
 local. Le problème du serveur local reste entier.
 
+Le **faux backend MileNet** (control plane) est implémenté : HTTPS local,
+clé publique, login, endpoints de profil. `Create` et `ReserveSpot` sont
+encore des stubs (morceau 6B).
+
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
 
@@ -170,14 +174,18 @@ local. Le problème du serveur local reste entier.
   - `config.py` — lecture-écriture .ini UE4, profils, backups
   - `network.py` — IP locale/publique, endpoints, ports UDP, pare-feu
   - `launcher.py` — lancement Steam, modes host/join, sessions, logs
-  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`, `host`, `join`, `sessions`
+  - `mock_backend.py` — faux backend MileNet local (HTTPS + RSA/AES)
+  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`, `host`, `join`, `sessions`, `mock`
   - `__main__.py` — `python -m mgp19 ...`
 - `profiles/vanilla.json` — aucune modification
 - `profiles/direct-connect.json` — override Null OSS + IpNetDriver + CVars
+- `profiles/mock-milenet.json` — redirection MileNet vers `localhost:8443`
 - `tests/test_config.py` — 9 tests unitaires
 - `tests/test_network.py` — 12 tests unitaires
 - `tests/test_launcher.py` — 8 tests unitaires
+- `tests/test_mock_backend.py` — 2 tests unitaires (crypto + serveur)
 - `docs/README.md` — structure et commandes
+- `docs/MOCK-BACKEND.md` — utilisation du faux backend
 - `docs/PHASE1-RESULTS.md` — compte rendu du premier test réel
 - `docs/EXTERNAL-INTEL.md` — analyse des infos du contact
 - `docs/PROTOCOL-CONFIRMED.md` — protocole HTTP/UDP confirmé par les artefacts
@@ -551,6 +559,34 @@ Toujours inconnu :
 - l'algorithme `WWW-Authenticate` (non bloquant pour un mock).
 
 Document : `docs/PROTOCOL-CONFIRMED.md`.
+
+### 2026-11-10 — Morceau 6A : faux backend MileNet (control plane)
+
+Créé :
+
+- `mgp19/mock_backend.py` :
+  - HTTPS local + certificat auto-signé
+  - paire RSA-1024 pour les corps
+  - `GET /Security/PublicKey`
+  - `POST /PlayerProfile/Steam/Login` (déchiffrement, token/userid)
+  - `UpdateSession`, `GetPlatformIds`, `Regions`
+  - stubs `Storage`, `Notifications`, `Statistics`, `Analytics`
+  - `Create` / `ReserveSpot` encore en stub
+- `profiles/mock-milenet.json` : redirection `LiveBaseUrl=localhost:8443`
+- `cli.py` : commande `mock`
+- `tests/test_mock_backend.py` : 2 tests (crypto + serveur)
+- `docs/MOCK-BACKEND.md`
+
+Vérifications :
+
+- `.\.venv\Scripts\python -m unittest discover -s tests` → **31 tests OK**
+- `.\.venv\Scripts\python -m mgp19 mock --port 8443` → démarre
+- `GET /services/v1/Security/PublicKey` → HTTP 200, PEM 272 o
+- `python -m mgp19 apply mock-milenet` → diff correct, **aucune écriture**
+- tests d'intégration : login chiffré → token/userid → `GetPlatformIds` OK
+
+Aucun lancement du jeu, aucune écriture de config réelle.
+Prochain morceau : 6B (Create/ReserveSpot + écoute UDP + test client).
 
 ---
 

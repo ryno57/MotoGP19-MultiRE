@@ -322,6 +322,32 @@ def cmd_sessions(args) -> int:
     return 0
 
 
+def cmd_mock(args) -> int:
+    try:
+        from . import mock_backend
+    except ImportError as error:
+        print(f"Erreur d'import du mock : {error}", file=sys.stderr)
+        return 2
+
+    cert_dir = Path(args.cert_dir)
+    if not cert_dir.is_absolute():
+        cert_dir = PROJECT_ROOT / cert_dir
+    log_path = Path(args.log) if args.log else None
+    if log_path is not None and not log_path.is_absolute():
+        log_path = PROJECT_ROOT / log_path
+
+    try:
+        return mock_backend.run_mock(
+            host=args.host,
+            port=args.port,
+            cert_dir=cert_dir,
+            log_path=log_path,
+        )
+    except RuntimeError as error:
+        print(f"Erreur : {error}", file=sys.stderr)
+        return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mgp19",
@@ -439,6 +465,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     sessions = sub.add_parser("sessions", help="lister les sessions enregistrées")
     sessions.set_defaults(func=cmd_sessions)
+
+    mock = sub.add_parser("mock", help="lancer le faux backend MileNet local")
+    mock.add_argument("--host", default="127.0.0.1")
+    mock.add_argument("--port", type=int, default=8443)
+    mock.add_argument(
+        "--cert-dir",
+        default="work/mock_tls",
+        help="dossier des certificats et clés du mock",
+    )
+    mock.add_argument(
+        "--log",
+        default="work/mock_milenet.log",
+        help="fichier de log du mock (vide pour désactiver)",
+    )
+    mock.set_defaults(func=cmd_mock)
 
     return parser
 

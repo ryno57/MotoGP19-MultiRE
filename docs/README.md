@@ -8,6 +8,7 @@ mgp19/
   config.py     lecture-écriture des .ini UE4, profils, sauvegardes
   network.py    IP locale/publique, endpoints, ports UDP, pare-feu
   launcher.py   lancement Steam, modes host/join, sessions
+  mock_backend.py  faux backend MileNet local (HTTPS + crypto)
   cli.py        interface en ligne de commande
   __main__.py   point d'entrée `python -m mgp19`
 profiles/
@@ -42,6 +43,11 @@ python -m mgp19 host --yes                      # lance réellement
 python -m mgp19 join 192.168.0.42               # aperçu connexion
 python -m mgp19 join 192.168.0.42 --yes         # lance réellement
 python -m mgp19 sessions                        # historique des sessions
+
+# Faux backend MileNet (nécessite .venv + cryptography)
+.\.venv\Scripts\python -m mgp19 mock --port 8443
+python -m mgp19 apply mock-milenet --yes
+python -m mgp19 restore Engine.ini --yes
 ```
 
 ## Sessions
