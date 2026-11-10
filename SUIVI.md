@@ -65,10 +65,11 @@ est maintenant confirmé et documenté dans `docs/PROTOCOL-CONFIRMED.md`.
 Le serveur observé est une instance AWS GameLift officielle, pas un serveur
 local. Le problème du serveur local reste entier.
 
-Le **faux backend MileNet** est implémenté : HTTPS local, clé publique,
-login, endpoints de profil, `Create`/`ReserveSpot` avec notre IP/port et une
-clé AES, et écoute UDP des paquets du client. Il ne reste plus qu'à le tester
-avec le vrai jeu (morceau 6C) et à forcer un serveur local (UE4SS).
+Le **faux backend MileNet** a été testé avec le vrai jeu : login, `Regions`,
+`Create` et `ReserveSpot` acceptés ; le client se connecte à notre IP/port et
+envoie le handshake UE4, puis timeout car le mock ne répond pas au handshake.
+Le **control plane est maîtrisé**. Il reste à implémenter la réponse au
+handshake (6D) et à forcer un serveur local (UE4SS).
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -187,6 +188,7 @@ avec le vrai jeu (morceau 6C) et à forcer un serveur local (UE4SS).
 - `tests/test_mock_backend.py` — 3 tests unitaires (crypto + serveur + session)
 - `docs/README.md` — structure et commandes
 - `docs/MOCK-BACKEND.md` — utilisation du faux backend
+- `docs/MOCK-TEST-RESULTS.md` — résultats du test réel 6C
 - `docs/PHASE1-RESULTS.md` — compte rendu du premier test réel
 - `docs/EXTERNAL-INTEL.md` — analyse des infos du contact
 - `docs/PROTOCOL-CONFIRMED.md` — protocole HTTP/UDP confirmé par les artefacts
@@ -615,6 +617,36 @@ Vérifications :
 
 Aucun lancement du jeu, aucune écriture de config réelle.
 Prochain morceau : 6C (test réel avec le client).
+
+### 2026-11-10 — Morceau 6C : test réel du mock avec le client
+
+Test :
+
+- mock lancé sur `127.0.0.1:8443`, endpoint de jeu `192.168.0.11:7777`
+- profil `mock-milenet` appliqué
+- jeu lancé via Steam
+- navigation : MULTIJOUEUR → COURSE PRIVÉE → CRÉER UN SALON
+
+Résultats :
+
+- `PublicKey`, `Login` (1324 o), `GetPlatformIds`, `Storage` : acceptés.
+- `Regions` : accepté ; ~60 s de latence ICMP (6 régions × 10 s).
+- `Create` (576 o) : **réponse acceptée**, le client enchaîne sur `ReserveSpot`.
+- `ReserveSpot` (408 o) : **réponse acceptée**.
+- Le client se connecte à `192.168.0.11:7777` et envoie des paquets UDP de
+  25 o toutes les secondes (handshake UE4).
+- Timeout : « Connexion à l'hôte interrompue » car le mock ne répond pas au
+  handshake.
+
+Conclusion :
+
+- le control plane est maîtrisé ;
+- le schéma `Create` reconstitué est accepté ;
+- le client utilise bien notre IP/port et notre clé ;
+- il manque la réponse au handshake UE4 (6D) et un vrai serveur (UE4SS).
+
+Config restaurée après le test. Aucun processus ni port laissé ouvert.
+Document : `docs/MOCK-TEST-RESULTS.md`.
 
 ---
 
