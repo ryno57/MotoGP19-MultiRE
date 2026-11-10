@@ -34,6 +34,25 @@ Pistes :
 
 ---
 
+## 1 bis. Décisions validées (2026-11-10)
+
+- **Phase A timeboxée à 4 soirées.** Si aucun serveur local n'est créé,
+  on s'arrête et on réévalue.
+- **Focus sur la Voie A** (serveur local via UE4SS). La Voie B (backend
+  officiel) est mise de côté pour l'instant.
+- **UE4SS sur le compte principal, Steam en mode hors ligne.**
+  - Pas de matchmaking officiel avec UE4SS chargé.
+  - Tests locaux uniquement.
+  - Compte secondaire conseillé si possible.
+- **Launcher : le plus pratique et visible.** Cible GUI, avec un socle CLI
+  réutilisable. La GUI arrive après validation du serveur local.
+- **2e PC : fourni par le pote** pour les tests de connexion.
+- **Le pote n'a pas de résultats UE4SS supplémentaires** : nous sommes en
+  avance sur ce point.
+- Feuille de route détaillée : `docs/ROADMAP.md`.
+
+---
+
 ## 2. État actuel
 
 **Phase : control plane maîtrisé + UE4SS opérationnel. Serveur de jeu local non obtenu.**
@@ -201,6 +220,7 @@ erreur, mais ne créent pas encore de session locale. Prochaine piste :
 - `docs/MOCK-BACKEND.md` — utilisation du faux backend
 - `docs/MOCK-TEST-RESULTS.md` — résultats du test réel 6C
 - `docs/UE4SS-INSTALL.md` — installation UE4SS, jonction ASCII, tests
+- `docs/ROADMAP.md` — feuille de route validée, phases et jalons
 - `tools/install_ue4ss.ps1`, `tools/uninstall_ue4ss.ps1`, `tools/launch_ue4ss.ps1`
 - UE4SS v3.0.1 installé dans `motogp19/Binaries/Win64`
 - jonction ASCII `F:\SteamLibrary\steamapps\common\MotoGP19` → `MotoGP™19`
@@ -784,6 +804,35 @@ Interprétation :
   `StrategyInstance` par `USingleSessionStrategy`.
 
 Document : `docs/UE4SS-INSTALL.md`.
+
+### 2026-11-10 — Plan de développement validé
+
+Décisions :
+
+- Phase A timeboxée à **4 soirées**.
+- Focus sur la **Voie A** (serveur local UE4SS) ; Voie B en réserve.
+- UE4SS sur compte principal, **Steam hors ligne**, pas de matchmaking
+  officiel avec UE4SS.
+- Launcher cible **GUI**, socle CLI d'abord.
+- 2e PC fourni par le pote.
+- Le pote n'a pas de résultats UE4SS supplémentaires.
+
+Feuille de route complète : `docs/ROADMAP.md`.
+
+Jalons :
+
+```text
+M1 UE4SS charge            ✅
+M2 CXX dump                ✅
+M3 session locale          en cours (timebox 4 soirées)
+M4 UDP 7777
+M5 2e client
+M6 course
+M7 launcher GUI
+M8 12 joueurs
+```
+
+Prochain morceau : **7A — `CreateAdvancedSession(bUseLAN=true)`**.
 
 ---
 

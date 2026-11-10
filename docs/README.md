@@ -90,3 +90,8 @@ python -m unittest discover -s tests -v
 
 L'installation UE4SS, la jonction ASCII et les tests sont documentés dans
 `docs/UE4SS-INSTALL.md`.
+
+## Feuille de route
+
+Le plan de développement validé, les phases et les jalons sont dans
+`docs/ROADMAP.md`.
