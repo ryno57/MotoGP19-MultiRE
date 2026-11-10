@@ -7,6 +7,7 @@ mgp19/
   paths.py      détection Steam / installation / chemins utilisateur
   config.py     lecture-écriture des .ini UE4, profils, sauvegardes
   network.py    IP locale/publique, endpoints, ports UDP, pare-feu
+  launcher.py   lancement Steam, modes host/join, sessions
   cli.py        interface en ligne de commande
   __main__.py   point d'entrée `python -m mgp19`
 profiles/
@@ -34,7 +35,27 @@ python -m mgp19 net --public                    # + IP publique
 python -m mgp19 firewall                        # aperçu règle pare-feu
 python -m mgp19 firewall --range                # aperçu plage 7777-8077
 python -m mgp19 firewall --yes                  # ajout réel (admin)
+
+python -m mgp19 host                            # aperçu hébergement
+python -m mgp19 host --track losail --port 7777
+python -m mgp19 host --yes                      # lance réellement
+python -m mgp19 join 192.168.0.42               # aperçu connexion
+python -m mgp19 join 192.168.0.42 --yes         # lance réellement
+python -m mgp19 sessions                        # historique des sessions
 ```
+
+## Sessions
+
+Chaque lancement réel crée un dossier dans `sessions/<horodatage>-<mode>/` :
+
+- `session.json` — état, args, notes
+- `Engine.before.ini` / `Engine.after.ini`
+- `net.before.json` / `net.after.json`
+- `steam-command.txt`
+- `logs/`, `crashes/`, `crash-report/` si disponibles
+
+La config est restaurée automatiquement à la fin. Si le launcher est interrompu,
+la session reste marquée `active` et sera restaurée au prochain lancement.
 
 ## Sécurité
 

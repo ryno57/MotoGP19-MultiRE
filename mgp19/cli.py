@@ -7,7 +7,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import network
+from . import launcher, network
 from .config import ConfigManager, Profile
 from .paths import find_install, is_game_running
 
@@ -197,6 +197,131 @@ def cmd_firewall(args) -> int:
     return 0
 
 
+def _print_plan(install, plan, *, yes: bool) -> bool:
+    steam_exe = launcher.find_steam_exe()
+    if steam_exe is None:
+        print("steam.exe introuvable. Steam est-il installé ?", file=sys.stderr)
+        return False
+
+    command = launcher.steam_command(steam_exe, plan)
+    print("Plan de lancement")
+    print(f"  mode          : {plan.mode}")
+    print(f"  profil        : {plan.profile}")
+
+    if plan.mode == "host":
+        print(f"  map           : {plan.map_url}")
+        print(f"  port          : {plan.port}")
+        endpoint = network.format_endpoint(network.local_ip(), plan.port)
+        print(f"  endpoint      : {endpoint}")
+    else:
+        print(f"  endpoint      : {plan.endpoint}")
+
+    print(f"  restauration  : {'oui' if plan.restore_after else 'non'}")
+    print(f"  commande      : {launcher.command_text(command)}")
+
+    if not yes:
+        print("\nMode aperçu. Relance avec --yes pour lancer.")
+    return True
+
+
+def _print_session(info: launcher.SessionInfo) -> None:
+    print(f"\nSession       : {info.directory}")
+    print(f"Jeu démarré   : {'oui' if info.game_started else 'non'}")
+    print(f"Jeu terminé   : {'oui' if info.game_exited else 'non'}")
+    print(f"Durée         : {info.duration_s} s")
+    for note in info.notes:
+        print(f"  - {note}")
+
+
+def cmd_host(args) -> int:
+    install = _install(args)
+    profiles = _load_profiles()
+    profile = profiles.get(args.profile)
+    if profile is None:
+        print(f"Profil inconnu : {args.profile}", file=sys.stderr)
+        return 2
+
+    map_url = args.map or launcher.default_map(args.track)
+    if "?" not in map_url:
+        map_url += "?listen"
+
+    plan = launcher.LaunchPlan(
+        mode="host",
+        map_url=map_url,
+        port=args.port,
+        profile=args.profile,
+        restore_after=not args.no_restore,
+        extra_args=args.extra_arg,
+    )
+
+    if not _print_plan(install, plan, yes=args.yes):
+        return 2
+    if not args.yes:
+        return 0
+
+    try:
+        info = launcher.run_session(install, plan, profile, start_timeout=args.timeout)
+    except RuntimeError as error:
+        print(f"Erreur : {error}", file=sys.stderr)
+        return 2
+
+    _print_session(info)
+    return 0
+
+
+def cmd_join(args) -> int:
+    install = _install(args)
+    profiles = _load_profiles()
+    profile = profiles.get(args.profile)
+    if profile is None:
+        print(f"Profil inconnu : {args.profile}", file=sys.stderr)
+        return 2
+
+    try:
+        host, port = network.parse_endpoint(args.endpoint, default_port=args.port)
+    except ValueError as error:
+        print(f"Endpoint invalide : {error}", file=sys.stderr)
+        return 2
+
+    plan = launcher.LaunchPlan(
+        mode="join",
+        endpoint=network.format_endpoint(host, port),
+        port=port,
+        profile=args.profile,
+        restore_after=not args.no_restore,
+        extra_args=args.extra_arg,
+    )
+
+    if not _print_plan(install, plan, yes=args.yes):
+        return 2
+    if not args.yes:
+        return 0
+
+    try:
+        info = launcher.run_session(install, plan, profile, start_timeout=args.timeout)
+    except RuntimeError as error:
+        print(f"Erreur : {error}", file=sys.stderr)
+        return 2
+
+    _print_session(info)
+    return 0
+
+
+def cmd_sessions(args) -> int:
+    sessions = launcher.list_sessions()
+    if not sessions:
+        print("Aucune session enregistrée.")
+        return 0
+
+    for data in sessions:
+        print(
+            f"{data.get('id', '?'):<24} {data.get('mode', '?'):<5} "
+            f"{data.get('started_at', '?')} "
+            f"active={data.get('active')} duration={data.get('duration_s')}"
+        )
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="mgp19",
@@ -259,6 +384,61 @@ def build_parser() -> argparse.ArgumentParser:
         help="ajouter réellement la règle (admin requis)",
     )
     firewall.set_defaults(func=cmd_firewall)
+
+    host = sub.add_parser("host", help="héberger une course locale")
+    host.add_argument("--track", default=launcher.DEFAULT_TRACK)
+    host.add_argument(
+        "--map",
+        help="chemin complet de la map (prioritaire sur --track)",
+    )
+    host.add_argument("--port", type=int, default=network.DEFAULT_PORT)
+    host.add_argument("--profile", default="direct-connect")
+    host.add_argument(
+        "--no-restore",
+        action="store_true",
+        help="ne pas restaurer la config après la session",
+    )
+    host.add_argument(
+        "--extra-arg",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help="argument supplémentaire passé au jeu",
+    )
+    host.add_argument("--timeout", type=float, default=120.0)
+    host.add_argument(
+        "--yes",
+        action="store_true",
+        help="lancer réellement (sinon simple aperçu)",
+    )
+    host.set_defaults(func=cmd_host)
+
+    join = sub.add_parser("join", help="rejoindre une course par IP")
+    join.add_argument("endpoint")
+    join.add_argument("--port", type=int, default=network.DEFAULT_PORT)
+    join.add_argument("--profile", default="direct-connect")
+    join.add_argument(
+        "--no-restore",
+        action="store_true",
+        help="ne pas restaurer la config après la session",
+    )
+    join.add_argument(
+        "--extra-arg",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help="argument supplémentaire passé au jeu",
+    )
+    join.add_argument("--timeout", type=float, default=120.0)
+    join.add_argument(
+        "--yes",
+        action="store_true",
+        help="lancer réellement (sinon simple aperçu)",
+    )
+    join.set_defaults(func=cmd_join)
+
+    sessions = sub.add_parser("sessions", help="lister les sessions enregistrées")
+    sessions.set_defaults(func=cmd_sessions)
 
     return parser
 

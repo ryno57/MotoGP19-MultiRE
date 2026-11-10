@@ -36,7 +36,7 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : reconnaissance terminée + socle launcher + diagnostics réseau (morceaux 2 et 3).**
+**Phase : reconnaissance terminée + socle launcher + réseau + launcher (morceaux 2, 3 et 4).**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
 Le lancement en `-server` ne produit pas encore de socket d'écoute sur 7777.
@@ -44,8 +44,10 @@ Le build shipping n'écrit pas de log fichier exploitable.
 La console en jeu n'a pas encore été testée manuellement.
 
 Le socle `mgp19/` est en place : détection Steam, profils de config,
-sauvegarde/restauration, diagnostic réseau et pare-feu.
-Aucun profil n'a encore été appliqué pour de vrai.
+sauvegarde/restauration, diagnostic réseau, pare-feu, lancement host/join
+via Steam et enregistrement de sessions.
+Aucun profil n'a encore été appliqué pour de vrai et aucun lancement réel
+n'a été effectué par le launcher.
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -140,12 +142,14 @@ Aucun profil n'a encore été appliqué pour de vrai.
   - `paths.py` — détection Steam / installation / chemins utilisateur
   - `config.py` — lecture-écriture .ini UE4, profils, backups
   - `network.py` — IP locale/publique, endpoints, ports UDP, pare-feu
-  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`
+  - `launcher.py` — lancement Steam, modes host/join, sessions, logs
+  - `cli.py` — commandes `doctor`, `profiles`, `apply`, `restore`, `status`, `net`, `firewall`, `host`, `join`, `sessions`
   - `__main__.py` — `python -m mgp19 ...`
 - `profiles/vanilla.json` — aucune modification
 - `profiles/direct-connect.json` — override Null OSS + IpNetDriver + CVars
 - `tests/test_config.py` — 9 tests unitaires
 - `tests/test_network.py` — 12 tests unitaires
+- `tests/test_launcher.py` — 8 tests unitaires
 - `docs/README.md` — structure et commandes
 - `tools/strings_extract.py` — extraction de strings (ASCII + UTF-16)
 - `tools/pak.py` — lecteur / extracteur de `.pak` UE4
@@ -202,15 +206,25 @@ Critère de sortie : un 2e client voit le host et une course peut démarrer.
 - règle de pare-feu Windows (vérification + ajout explicite)
 - parsing des endpoints pour les futurs `host` / `join`
 
-### Morceau suivant (4)
+### Morceau 4 — terminé
 
-`launcher.py` :
+`launcher.py` + commandes `host` / `join` / `sessions` :
 - lancement du jeu via Steam avec arguments
-- mode `host` / `join`
+- mode `host` (map + `?listen` + port)
+- mode `join` (endpoint)
 - application / restauration automatique du profil
-- collecte des logs de session
+- collecte des logs et métadonnées de session
+- récupération d'une session restée active
 
-Puis seulement : tests réels host/join.
+### Morceau suivant (5)
+
+Test réel :
+1. Lancer `python -m mgp19 host --yes` sur le PC host.
+2. Vérifier l'ouverture du port 7777 et l'état de la console.
+3. Lancer `python -m mgp19 join <IP> --yes` sur un 2e PC.
+4. Documenter dans `docs/PHASE1-RESULTS.md`.
+
+Puis ajuster les arguments de lancement selon ce qui est observé.
 
 ---
 
@@ -302,6 +316,37 @@ Vérifications :
 
 Aucune règle de pare-feu n'a été ajoutée (pas d'admin, pas de `--yes`).
 Prochain morceau : `launcher.py` (host / join + application de profil).
+
+### 2026-11-10 — Morceau 4 : launcher host / join
+
+Créé :
+
+- `mgp19/launcher.py` :
+  - `LaunchPlan` host/join avec arguments de jeu
+  - `find_steam_exe()` + `steam_command()`
+  - `run_session()` : applique le profil, lance via Steam, attend le jeu,
+    restaure la config, collecte les logs
+  - `SessionRecorder` : `session.json`, config avant/après, diagnostic réseau,
+    logs / crashs si disponibles
+  - `recover_previous_sessions()` : restaure une session restée active
+- `tests/test_launcher.py` : 8 tests.
+- `cli.py` : commandes `host`, `join`, `sessions`.
+- `.gitignore` : ajout de `sessions/`.
+- `docs/README.md` mis à jour.
+
+Vérifications :
+
+- `python -m unittest discover -s tests` → **29 tests OK**.
+- `python -m mgp19 host` → plan correct :
+  map Mugello `?listen`, port 7777, endpoint `192.168.0.11:7777`,
+  commande Steam affichée, **aucun lancement**.
+- `python -m mgp19 join 192.168.0.42` → plan join correct, **aucun lancement**.
+- `python -m mgp19 join 192.168.0.42:99999` → erreur propre.
+- `python -m mgp19 host --track losail --port 7778` → map et port corrects.
+- `python -m mgp19 sessions` → aucune session.
+
+Aucun lancement réel, aucune écriture de config, aucune règle pare-feu.
+Prochain morceau : test réel host/join sur deux PC.
 
 ---
 
