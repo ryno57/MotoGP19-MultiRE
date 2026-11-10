@@ -53,6 +53,11 @@ serveur local** : la map passée en argument est ignorée, et le profil
 `direct-connect` coupe l'accès MileNet, ce qui déclenche des dialogues
 « services Milestone inaccessibles ».
 
+Des informations externes (contact sous Linux/Proton + scripts) ont été
+recoupées : elles confirment que **le binaire client n'embarque pas le SDK
+GameLift serveur** et que `-server` n'active pas de serveur dédié.
+Voir `docs/EXTERNAL-INTEL.md`.
+
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
 
@@ -100,6 +105,17 @@ serveur local** : la map passée en argument est ignorée, et le profil
   - `Online.MatchMakingVersion`
 - `ConsoleKeys=Tilde` et `ConsoleKeys=F1` dans `DefaultInput.ini`
   mais aussi `ConsoleKey=None` → console peut-être désactivée en shipping.
+- Les symboles du SDK GameLift serveur sont **absents** des strings :
+  `InitSDK`, `ProcessReady`, `StartGameSession`, `AcceptPlayerSession`, `FleetId`.
+  `GameLiftServerSDK` n'apparaît que comme nom de module.
+- Les composants serveur existent toutefois comme chaînes :
+  `UGameLiftServerGameSessionComponent`,
+  `UDedicatedServerGameSessionComponent`,
+  `Session map not set for dedicated server`,
+  `UDedicatedServerGameSessionComponent::RetrieveEncryptionInformations not implemented`.
+- `AESGCM`, `EncryptionToken`, `NMT_Hello`, `PlayerSessionId`, `playerData`
+  sont présents → cohérent avec le protocole décrit par le contact externe.
+- `IpNetDriver listening on port` et `LocalMapOptions` sont présents.
 
 ---
 
@@ -247,24 +263,46 @@ Conclusion :
 
 Détails : `docs/PHASE1-RESULTS.md`.
 
-### Morceau suivant (6)
+### Nouvelle orientation après les infos externes
 
-Tester le listen server par la console, en profil **vanilla** :
+Le test console reste utile, mais il n'est plus la seule priorité.
+Le contact a montré que :
 
-1. Lancer le jeu normalement (vanilla) jusqu'au menu principal.
-2. Ouvrir la console avec `~` ou `F1`.
-3. Taper :
-   ```text
-   open /Game/maps/Tracks/mugello/mugello?listen
-   ```
-4. Vérifier l'apparition du port 7777.
-5. Si la console est inaccessible : l'activer via la config, ou passer au mock
-   MileNet.
+- le client ne peut pas démarrer en serveur dédié (`-server` inopérant) ;
+- la map en argument est ignorée ;
+- le SDK GameLift serveur n'est pas lié dans le binaire client ;
+- le protocole HTTP et UDP est maintenant connu.
 
-Décision :
-- console + listen server OK → adapter le launcher pour exécuter la commande.
-- console impossible → mock MileNet / GameLift.
-- aucun serveur local → plan B.
+Plan révisé :
+
+**A. Solution de secours immédiate (officielle)**
+
+1. Reproduire sur Windows le correctif de latences du contact.
+2. Rediriger `[MileNetOnline] LiveBaseUrl` vers le proxy local.
+3. Héberger via le backend officiel, en forçant une région proche.
+4. Documenter clairement que ça dépend encore de Milestone.
+
+**B. Chemin vers l'indépendance**
+
+1. Tester UE4SS sur UE 4.21 :
+   - console,
+   - export des classes,
+   - inspection de `UGameLiftServerGameSessionComponent`,
+     `UDedicatedServerGameSessionComponent`, `UGameSessionSettings`.
+2. Tenter `open` / `ServerTravel` avec la map lobby et le bon GameMode.
+3. Si un listen server démarre :
+   - construire le faux backend MileNet,
+   - répondre à `Create` / `ReserveSpot` avec notre IP/port et notre clé,
+   - fournir la clé AES/nonce au serveur.
+4. Si UE4SS échoue : Ghidra sur les chaînes serveur, ou plan B.
+
+**C. Si aucun serveur local n'est possible**
+
+- Le contournement officiel reste la solution pragmatique.
+- L'indépendance totale exigerait de récupérer un binaire serveur ou de
+  réécrire le netcode.
+
+Détails et niveau de confiance : `docs/EXTERNAL-INTEL.md`.
 
 ---
 
@@ -272,13 +310,14 @@ Décision :
 
 | Inconnue | Méthode | Statut |
 |---|---|---|
-| Code serveur fonctionnel dans le binaire | test `-server` / map | à trancher |
-| Listen server possible | console `open ...?listen` | à trancher |
-| Connexion client directe | test 2 PC | à trancher |
-| Course démarrable sans MileNet | observation FSM | à trancher |
-| Format exact des réponses de session | mitmproxy / HAR | à trancher |
-| Chiffrement RSA/AES rejouable | endpoint PublicKey | à trancher |
-| SteamNetDriver vs IpNetDriver | override config | à trancher |
+| Code serveur fonctionnel dans le binaire | strings SDK + test `-server` | **non** : SDK GameLift absent, `-server` inopérant |
+| Listen server possible | UE4SS / console / `ServerTravel` | inconnu, à tester |
+| Connexion client directe | test 2 PC | inconnu, dépend du serveur |
+| Course démarrable sans MileNet | observation FSM / UE4SS | inconnu |
+| Format exact des réponses de session | memory scan / capture | partiel : ReserveSpot connu, Create à capturer |
+| Chiffrement HTTP RSA/AES rejouable | addon mitmproxy | décrit par le contact, à reproduire |
+| Chiffrement UDP AES-256-GCM | pcap + `ue4_decrypt.py` | décrit comme vérifié, outil à récupérer |
+| SteamNetDriver vs IpNetDriver | override config | `IpNetDriver` forçable |
 
 ---
 
@@ -416,6 +455,31 @@ Interprétation :
 
 Document : `docs/PHASE1-RESULTS.md`.
 Prochain morceau : test console `~` / `F1` + `open ...?listen`.
+
+### 2026-11-10 — Infos externes (contact Linux/Proton)
+
+Reçu : `message.txt`, `scan_mem.py`, `mitm_addon.py`.
+
+Recoupement avec nos strings :
+
+- `InitSDK`, `ProcessReady`, `StartGameSession`, `AcceptPlayerSession`,
+  `FleetId` : **absents** → le SDK GameLift serveur n'est pas lié.
+- `GameLiftServerSDK` : présent uniquement comme nom de module.
+- `Session map not set for dedicated server` et
+  `RetrieveEncryptionInformations not implemented` : présents.
+- `AESGCM`, `EncryptionToken`, `NMT_Hello`, `PlayerSessionId`, `playerData` :
+  présents → cohérent avec le protocole décrit.
+
+Conséquences :
+
+- le binaire client n'est très probablement pas un serveur dédié ;
+- `-server` et la map en argument sont confirmés inopérants ;
+- le chemin « serveur local » passe par UE4SS / listen server forcé ;
+- le faux backend MileNet est faisable (crypto et endpoints connus) ;
+- le contournement officiel par réécriture des latences est une solution
+  de secours immédiate.
+
+Document : `docs/EXTERNAL-INTEL.md` (tableau de confiance + plan révisé).
 
 ---
 
