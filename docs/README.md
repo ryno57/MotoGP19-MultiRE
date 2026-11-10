@@ -85,3 +85,8 @@ la session reste marquée `active` et sera restaurée au prochain lancement.
 ```powershell
 python -m unittest discover -s tests -v
 ```
+
+## UE4SS
+
+L'installation UE4SS, la jonction ASCII et les tests sont documentés dans
+`docs/UE4SS-INSTALL.md`.

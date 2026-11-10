@@ -36,7 +36,7 @@ Pistes :
 
 ## 2. État actuel
 
-**Phase : control plane maîtrisé (morceau 6D). Serveur de jeu local non obtenu.**
+**Phase : control plane maîtrisé + UE4SS opérationnel. Serveur de jeu local non obtenu.**
 
 Le jeu démarre hors ligne jusqu'au menu principal.
 Le lancement en `-server` ne produit pas de socket d'écoute sur 7777.
@@ -70,6 +70,15 @@ Le **faux backend MileNet** a été testé avec le vrai jeu : login, `Regions`,
 client envoie son paquet `psess-...` / `NMT_Hello`. Le **control plane est
 maîtrisé**. Il reste à envoyer le `NMT_Welcome` / la réplication (ou à utiliser
 UE4SS) pour obtenir un vrai serveur de jeu.
+
+**UE4SS v3.0.1** est installé et se charge sur UE 4.21. Les mods Lua ne
+fonctionnaient pas à cause du `™` dans le chemin ; une jonction ASCII
+(`F:\SteamLibrary\steamapps\common\MotoGP19`) et un lancement direct via
+`steam_appid.txt` ont résolu le problème. La console UE4SS et le dump de
+classes fonctionnent. `open` / `ServerTravel` sont exécutés mais ne créent
+pas de serveur local : le monde reste le menu avec un écran de chargement.
+Prochain axe : inspecter `GameOnlineSessionManagerBP_C` et tester les CVars
+host-alone.
 
 > Note : le projet a été déplacé dans `F:\MotoGP19-MultiRE` (dépôt git).
 > C'est ce dossier qui fait foi désormais.
@@ -189,6 +198,11 @@ UE4SS) pour obtenir un vrai serveur de jeu.
 - `docs/README.md` — structure et commandes
 - `docs/MOCK-BACKEND.md` — utilisation du faux backend
 - `docs/MOCK-TEST-RESULTS.md` — résultats du test réel 6C
+- `docs/UE4SS-INSTALL.md` — installation UE4SS, jonction ASCII, tests
+- `tools/install_ue4ss.ps1`, `tools/uninstall_ue4ss.ps1`, `tools/launch_ue4ss.ps1`
+- UE4SS v3.0.1 installé dans `motogp19/Binaries/Win64`
+- jonction ASCII `F:\SteamLibrary\steamapps\common\MotoGP19` → `MotoGP™19`
+- backup `backups/ue4ss-20261110-202311/` (Win64, config, saves, appmanifest)
 - `docs/PHASE1-RESULTS.md` — compte rendu du premier test réel
 - `docs/EXTERNAL-INTEL.md` — analyse des infos du contact
 - `docs/PROTOCOL-CONFIRMED.md` — protocole HTTP/UDP confirmé par les artefacts
@@ -682,6 +696,56 @@ Conclusion :
 - prochaine étape : UE4SS ou un vrai serveur.
 
 Config restaurée. Aucun processus ni port laissé ouvert.
+
+### 2026-11-10 — UE4SS : installation et premier test
+
+Installation :
+
+- UE4SS **v3.0.1** (`Game__Shipping__Win64`), téléchargé depuis GitHub.
+- Installé dans `motogp19/Binaries/Win64` : `dwmapi.dll`, `UE4SS.dll`,
+  `UE4SS-settings.ini`, `Mods/`.
+- Backup complet : `backups/ue4ss-20261110-202311/`
+  (`Binaries-Win64.zip`, config, saves, appmanifest, README).
+- Scripts : `tools/install_ue4ss.ps1`, `tools/uninstall_ue4ss.ps1`,
+  `tools/launch_ue4ss.ps1`.
+
+Problème rencontré :
+
+- Les mods Lua échouaient à cause du `™` dans `MotoGP™19`
+  (`luaL_loadfile ... Invalid argument`).
+- Solution : jonction ASCII
+  `F:\SteamLibrary\steamapps\common\MotoGP19` → `MotoGP™19`, puis lancement
+  direct du Shipping depuis la jonction avec `steam_appid.txt=984780`.
+- L'appmanifest Steam a été restauré à son état d'origine après le test.
+
+Résultats :
+
+- UE4SS se charge sur UE 4.21, signatures trouvées.
+- Console GUI « UE4SS Debugging Tools » OK.
+- Mods Lua chargés, dont `MGP19Dump`.
+- `F8` : dump des classes OK.
+  - `GameSession` = `IgnitionGameSession` (menu)
+  - `GameOnlineSessionManager` = `GameOnlineSessionManagerBP_C`
+  - `PlayerController` = `MenuPlayerControllerBP_C`
+  - `GameMode` = `MenuGameModeBP_C`
+  - `GameInstance` = `GameInstance_BP_C`
+  - `GameLiftServer...`, `DedicatedServer...`, `GameSessionSettings` : 0 objet.
+- `F9` : `open /Game/maps/lobby/lobby?listen?game=...LobbyGameModeBP...`
+  exécuté (`tentative 4: ok`), mais :
+  - le monde reste `/Game/maps/menu/menu` ;
+  - écran de chargement avec spinner ;
+  - **aucun port UDP 7777** ;
+  - pas de `LobbyGameModeBP_C`.
+
+Conclusion :
+
+- UE4SS est opérationnel, mais `open` / `ServerTravel` ne suffisent pas :
+  le jeu attend une session (`GameOnlineSessionManagerBP_C` /
+  `IgnitionGameSession`) avant de voyager.
+- Prochain axe : inspecter `GameOnlineSessionManagerBP_C` (fonctions
+  `CreateSession`, `HostAlone`, etc.) et tester les CVars host-alone.
+
+Document : `docs/UE4SS-INSTALL.md`.
 
 ---
 
