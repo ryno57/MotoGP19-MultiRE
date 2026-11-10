@@ -222,6 +222,14 @@ UCreateSessionCallbackProxyAdvanced::CreateAdvancedSession(..., bUseLAN, ...)
   `SetCreateSessionProperties` (paramètres out / struct opaque).
 - `CreateAdvancedSession(bUseLAN=true)` → proxy créé, mais aucune session
   ni UDP 7777. `OnSuccess`/`OnFailure` non bindables après l'activation.
+- UI avec **Null OSS** (`direct-connect-mock`) → navigation jusqu'à
+  « CRÉATION DE SALON PRIVÉ », puis **crash du jeu** (`MenuGameState`,
+  PCallStack natif). Aucun appel `Regions`/`Create`.
+  Crash context : `work/crash-7d/CrashContext.runtime-xml`.
+- Dernière tentative UI + `F6` à l'écran de création → `SetPlayInLan(true)`
+  OK, puis **freeze du processus** (`Responding=False`), pas de
+  `CreateOnlineSession` loggé, aucun UDP 7777.
+  → Phase A arrêtée.
 
 Résultat : **aucune session visible**, **aucun port UDP 7777**,
 le jeu reste au menu principal. Même résultat avec `direct-connect`

@@ -221,6 +221,7 @@ erreur, mais ne créent pas encore de session locale. Prochaine piste :
 - `docs/MOCK-TEST-RESULTS.md` — résultats du test réel 6C
 - `docs/UE4SS-INSTALL.md` — installation UE4SS, jonction ASCII, tests
 - `docs/ROADMAP.md` — feuille de route validée, phases et jalons
+- `docs/VOIE-A-ALTERNATIVES.md` — revue des acquis et alternatives serveur local
 - `tools/install_ue4ss.ps1`, `tools/uninstall_ue4ss.ps1`, `tools/launch_ue4ss.ps1`
 - UE4SS v3.0.1 installé dans `motogp19/Binaries/Win64`
 - jonction ASCII `F:\SteamLibrary\steamapps\common\MotoGP19` → `MotoGP™19`
@@ -890,6 +891,99 @@ Conclusion :
   Null OSS** (le FSM de l'UI fait le travail correctement).
 
 Timebox Phase A : **2 soirées / 4** utilisées.
+
+### 2026-11-10 — 7D : UI avec Null OSS → crash
+
+Test :
+
+- profil hybride `direct-connect-mock` :
+  - `DefaultPlatformService=NULL`
+  - `IpNetDriver`
+  - `net.AllowEncryption=0`
+  - `LiveBaseUrl=localhost:8443`
+  - mock HTTP lancé (`--no-udp`)
+- navigation UI :
+  - MULTIJOUEUR → CRÉER UNE PARTIE → COURSE PRIVÉE
+  - écran « CRÉATION DE SALON PRIVÉ » atteint.
+- tentatives pour déclencher « CRÉER UN SALON » :
+  - Espace, Retour arrière, X, Y, clic sur le footer ;
+  - aucun appel `Regions` / `Create` dans le mock.
+
+Résultat :
+
+- **le jeu a crashé** après ~223 s, état `MenuGameState` ;
+- `CrashContext.runtime-xml` : `CrashType=Crash`, pas de message,
+  PCallStack natif sans symboles ;
+- copie dans `work/crash-7d/CrashContext.runtime-xml`.
+
+Interprétation :
+
+- la création de session via **Null OSS** est instable / non supportée ;
+- le session manager du client semble conçu pour le flux MileNet/GameLift ;
+- le crash renforce l'hypothèse qu'un serveur local n'est pas un chemin
+  supporté par ce binaire client.
+
+Timebox Phase A : **3 soirées / 4** utilisées.
+Il reste **1 soirée** avant le point de décision.
+
+### 2026-11-10 — Phase A : échec, timebox épuisé (4/4)
+
+Dernière tentative :
+
+- profil hybride `direct-connect-mock` (Null OSS + mock HTTP) ;
+- navigation UI jusqu'à l'écran de création de salon (public, le choix
+  privé a été manqué) ;
+- `F6` (`SetPlayInLan(true)` + `CreateOnlineSession()`) exécuté ;
+- log : `SetPlayInLan(true) ok`, mais pas de `CreateOnlineSession() ok` ;
+- `Entrée` sur « CONTINUER » → **le processus ne répond plus**
+  (`Responding=False`), CPU bloqué ;
+- aucun appel `Regions` / `Create` dans le mock ;
+- **aucun UDP 7777**.
+
+Conclusion :
+
+- la création de session locale via Null OSS est **instable / non
+  supportée** (crash précédent, freeze maintenant) ;
+- le session manager du client est conçu pour MileNet/GameLift ;
+- la Phase A est **échouée** après 4 soirées.
+
+Décision recommandée :
+
+1. **Arrêter la Phase A.**
+2. Passer à la **Voie B** : backend officiel + correctif de latences.
+3. Si l'indépendance est non négociable : plan B (autre jeu).
+
+Aucun processus ni port laissé ouvert. Config restaurée.
+
+### 2026-11-10 — Revue Voie A : alternatives
+
+Constat clé : le spinner du `open` ressemble à un `ClientTravel` (le client
+cherche un serveur inexistant). Pour un listen server, il faut un
+`ServerTravel` / `OpenLevel` avec autorité.
+
+Alternatives identifiées (doc `docs/VOIE-A-ALTERNATIVES.md`) :
+
+1. `UGameplayStatics::OpenLevel(..., "listen")` — standard UE4.
+2. `UWorld::ServerTravel(..., bAbsolute=true)` — évite le `Travel_RELATIVE`.
+3. Charger `/Game/maps/server/idle?listen` (ServerDefaultMap).
+4. `SetPlayInLan(true)` avant l'UI, pas après.
+5. Lire `GetCreateSessionProperties(false)` à l'écran de création.
+6. `StartMatchmaking(bUseLAN=true)` avec `FBPOnlineSessionSettings`.
+7. `AGameSpecificGameSession::CreateSession()`.
+8. Inspecter `UGameLiftServerGameSessionComponent`.
+9. **Dépôt Steam « Dedicated Server »** — peut tout résoudre.
+10. CLI `-server -game -ExecCmds`.
+11. Serveur UE4 4.21 générique + paks.
+
+Prochain test recommandé :
+
+- A1 `OpenLevel` avec `listen` ;
+- A2 `ServerTravel` avec `bAbsolute=true` ;
+- A3 `server/idle?listen` ;
+- en parallèle, vérifier le dépôt Steam serveur (A9).
+
+Chaque test doit logguer `World.NetMode`, `World.NetDriver`, le monde chargé
+et l'UDP 7777.
 
 ---
 

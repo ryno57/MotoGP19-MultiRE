@@ -70,6 +70,10 @@ qui se connectent à son IP, sans dépendre des serveurs Milestone.
 **Timebox : 4 soirées à partir de maintenant.**  
 L'installation UE4SS et le CXX Header Dump sont déjà faits.
 
+**Résultat 2026-11-10 : échec / timebox épuisé.**  
+Aucune session locale créée. Null OSS a provoqué un crash puis un freeze.
+→ arrêt de la Phase A, bascule Voie B / plan B.
+
 ### Expériences, dans l'ordre
 
 #### A1. `CreateAdvancedSession(..., bUseLAN=true)`
@@ -299,21 +303,37 @@ Ces pistes sont documentées comme impasses.
 - pas de `SetCreateSessionProperties` / `CreateOnlineSession` ;
 - aucun UDP 7777.
 
-→ passer à **7C / A3** ou à **l'UI avec Null OSS**.
+**7D / UI avec Null OSS — testé le 2026-11-10**
 
-**7C — A3 : `UMpCreateSessionFsmState`**
+- profil hybride `direct-connect-mock` (Null OSS + mock HTTP) ;
+- navigation jusqu'à « CRÉATION DE SALON PRIVÉ » ;
+- aucun appel `Regions` / `Create` dans le mock ;
+- **crash du jeu** (`MenuGameState`, PCallStack natif) après ~223 s ;
+- crash context : `work/crash-7d/CrashContext.runtime-xml`.
 
-- trouver/instancier le state ;
-- `SetPublic(false)` ;
-- configurer `LevelToOpen` / `GameModeToOpen` ;
-- déclencher la création ;
-- vérifier le voyage et UDP 7777.
+Conclusion : la création de session via **Null OSS** est instable /
+non supportée. Le session manager du client semble conçu pour le flux
+MileNet/GameLift.
 
-**7D — UI avec Null OSS**
+### Bilan Phase A — échec (4 soirées / 4)
 
-- profil `direct-connect` (Null OSS) ;
-- navigation MULTIJOUEUR → COURSE PRIVÉE → CRÉER UN SALON ;
-- vérifier si l'UI crée une session locale et ouvre UDP 7777.
+- A1 `CreateAdvancedSession(bUseLAN=true)` : proxy créé, aucune session.
+- A2 `SetCreateSessionProperties` : bloqué par les out-params Lua.
+- 7D UI Null OSS : crash du jeu (`MenuGameState`).
+- A3/UI + `F6` : `SetPlayInLan(true)` OK, puis freeze du processus
+  (`Responding=False`), aucun `CreateOnlineSession` loggé, aucun UDP 7777.
 
-Si les deux échouent → arrêt de la Phase A et réévaluation
-(Voie B / plan B), conformément au timebox de 4 soirées.
+Conclusion : la création de session locale via **Null OSS** est
+instable / non supportée. Le session manager du client est conçu pour
+MileNet/GameLift. La Phase A est **arrêtée**.
+
+### Décision
+
+1. **Voie B** : backend officiel + correctif de latences.
+   - solution pragmatique pour la ligue ;
+   - dépend encore de Milestone.
+2. **Plan B** : autre jeu avec serveur dédié, si l'indépendance est
+   non négociable.
+
+Prochain morceau recommandé : mise en place de la **Voie B** sur Windows
+(proxy + `LiveBaseUrl` + réécriture des latences).
